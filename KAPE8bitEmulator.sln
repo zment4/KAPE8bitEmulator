@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30717.126
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KAPE8bitEmulator", "KAPE8bitEmulator.csproj", "{0C9B03FE-75F9-4A2D-BB28-8AFA89A52C75}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TranslateCMDFIFO", "..\TranslateCMDFIFO\TranslateCMDFIFO.csproj", "{3F84EFE4-8966-45CD-8FFC-723AA13D8732}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C9B03FE-75F9-4A2D-BB28-8AFA89A52C75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C9B03FE-75F9-4A2D-BB28-8AFA89A52C75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C9B03FE-75F9-4A2D-BB28-8AFA89A52C75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C9B03FE-75F9-4A2D-BB28-8AFA89A52C75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F84EFE4-8966-45CD-8FFC-723AA13D8732}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F84EFE4-8966-45CD-8FFC-723AA13D8732}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F84EFE4-8966-45CD-8FFC-723AA13D8732}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F84EFE4-8966-45CD-8FFC-723AA13D8732}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {04F66464-B057-434F-ABF1-EF87CE6259C1}
+	EndGlobalSection
+EndGlobal
