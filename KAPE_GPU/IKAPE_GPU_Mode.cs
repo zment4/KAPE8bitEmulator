@@ -1,13 +1,16 @@
 ﻿namespace KAPE8bitEmulator
 {
-    public interface IKAPE_GPU_Mode
+    public partial class KAPE_GPU
     {
-        KAPE_GPU GPU { get; set; }
-        bool IsTerminal { get; }
+        public interface IKAPE_GPU_Mode
+        {
+            KAPE_GPU GPU { get; set; }
+            bool IsTerminal { get; }
 
-        void Draw();
-        void HandleCommandBytes(byte[] cmdBytes);
-        void HandleTerminalCommandByte(byte cmdByte);
-        void Reset();
+            void Draw();
+            void HandleCommandBytes(byte[] cmdBytes);
+            void HandleTerminalCommandByte(byte cmdByte);
+            void Reset();
+        }
     }
 }

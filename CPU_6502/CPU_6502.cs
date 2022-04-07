@@ -94,7 +94,8 @@ namespace KAPE8bitEmulator
             insideNMI = false;
             nmiTriggered = false;
 
-            A = X = Y = P = 0;
+            A = X = Y = 0;
+            P = 0b00100000;
             S = 0xff;
         }
 
@@ -118,7 +119,6 @@ namespace KAPE8bitEmulator
 
         void RunCycle()
         {
-
 #if DEBUG
             if (!insideNMI)
                 PrintRegisters();
@@ -131,7 +131,7 @@ namespace KAPE8bitEmulator
                 PrintInstructionAndOpCodes(instruction, instr);
 #endif
 
-            if (instr == null)
+                if (instr == null)
             {
                 Console.WriteLine("Unhandled opcode! Freezing.");
                 PC--;
@@ -154,10 +154,12 @@ namespace KAPE8bitEmulator
                 return;
             }
             Console.Write($"{instr.Mnemonic}\t");
+            UInt16 addr = (UInt16)((Peek((UInt16)(PC + 1)) << 8) | Peek(PC)); ;
+
             switch (instr.AddressingMode)
             {
                 case AddressingModeEnum.Absolute:
-                    Console.WriteLine($"${Peek((UInt16) (PC+1)):X2}{Peek(PC):X2}");
+                    Console.WriteLine($"${addr:X4}\t=${Peek(addr):X2}");
                     break;
                 case AddressingModeEnum.Immediate:
                     Console.WriteLine($"#${Peek(PC):X2}");
@@ -176,11 +178,14 @@ namespace KAPE8bitEmulator
                     Console.WriteLine($"(${Peek(PC):X2}),Y");
                     break;
                 case AddressingModeEnum.AbsoluteIndexedX:
-                    var addr = ((Peek((UInt16)(PC + 1)) << 8) | Peek(PC)) + X;
+                    addr += X;
                     Console.WriteLine($"${addr:X4}");
                     break;
                 case AddressingModeEnum.Accumulator:
                     Console.WriteLine("A");
+                    break;
+                case AddressingModeEnum.AbsoluteIndirect:
+                    Console.WriteLine($"(${addr:X4})\t=${Peek(addr):X2}{Peek((UInt16) (addr+1)):X2}");
                     break;
             }
 
@@ -199,7 +204,11 @@ namespace KAPE8bitEmulator
 
         long currentCycles = 0;
         public int CurrentCyclesPerSecond = 0;
+        long currentNMI = 0;
+        public int CurrentNMIPerSecond = 0;
         long cyclesLastSecondStart = 0;
+        long nmiLastSecondStart = 0;
+
         bool resetRequested = false;
 
         public void EnterCycleLoop()
@@ -210,6 +219,12 @@ namespace KAPE8bitEmulator
                 Stopwatch limiterSW = new Stopwatch();
                 measureSW.Start();
                 limiterSW.Start();
+
+                if (Program.Args.Length > 1 && Program.Args[1] == "-wait")
+                {
+                    Console.WriteLine("Press any key to start emulator...");
+                    Console.ReadKey();
+                }
 
                 while (true)
                 {
@@ -228,6 +243,8 @@ namespace KAPE8bitEmulator
                     {
                         CurrentCyclesPerSecond = (int) Math.Round((currentCycles - cyclesLastSecondStart) * measureSW.Elapsed.TotalSeconds);
                         cyclesLastSecondStart = currentCycles;
+                        CurrentNMIPerSecond = (int)Math.Round((currentNMI - nmiLastSecondStart) * measureSW.Elapsed.TotalSeconds);
+                        nmiLastSecondStart = currentNMI;
                         measureSW.Restart();
                     }
                     if (nmiTriggered && !insideNMI) EnterNMI();
@@ -236,6 +253,7 @@ namespace KAPE8bitEmulator
                     //if (!insideNMI)
                     //    Console.ReadKey();
 #endif
+                    Thread.Sleep(0);
                 }
             }) { IsBackground = true }.Start();
         }
@@ -244,6 +262,7 @@ namespace KAPE8bitEmulator
 
         private void EnterNMI()
         {
+            currentNMI++;
 #if DEBUG
             Console.WriteLine($"Entering NMI at ${PC:X4}");
 #endif
@@ -297,7 +316,7 @@ namespace KAPE8bitEmulator
             for (int i = 0, offs = 0x0100; i < 16; i++)
             {
                 for (int k = 0; k < 16; k++, offs++)
-                    Console.Write($"{Read((UInt16) offs):X2} ");
+                    Console.Write($"{Read((UInt16) offs):X2}{(S == i ? '*' : ' ')}");
                 Console.WriteLine("");
             }
         }

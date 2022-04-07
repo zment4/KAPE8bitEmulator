@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace KAPE8bitEmulator
 {
-    partial class KAPE_GPU {
-        public class KAPE_GPU_TextMode : IKAPE_GPU_Mode
+    public partial class KAPE_GPU {
+        public class KAPE_GPU_TextMode : KAPE_GPU_Mode
         {
             const int TEXT_WIDTH = 32;
             const int TEXT_HEIGHT = 24;
@@ -19,20 +19,64 @@ namespace KAPE8bitEmulator
             byte cursorX;
             byte cursorY;
 
-            KAPE_GPU gpu;
-            public KAPE_GPU GPU { get => gpu; set => gpu = value; }
-
             private bool _isTerminal;
-            public bool IsTerminal => _isTerminal;
-
-            public KAPE_GPU_TextMode(KAPE_GPU kapeGPU)
-            {
-                gpu = kapeGPU;
-            }
+            public override bool IsTerminal => _isTerminal;
 
             byte[,] textBuffer = new byte[TEXT_WIDTH, TEXT_HEIGHT];
             byte[,] fgColorBuffer = new byte[TEXT_WIDTH, TEXT_HEIGHT];
             byte[,] bgColorBuffer = new byte[TEXT_WIDTH, TEXT_HEIGHT];
+
+            public KAPE_GPU_TextMode(KAPE_GPU gpu) : base(gpu)
+            {
+                commands.AddRange(new List<CommandDescriptor>() {
+                    new CommandDescriptor()
+                    {
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_SEND_CHARACTER,
+                        Action = CMD_SendCharacter,
+                    },
+                    new CommandDescriptor()
+                    {
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_CLEAR_SCREEN,
+                        Action = CMD_ClearScreen,
+                    },
+                    new CommandDescriptor()
+                    {
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_SET_INDEX,
+                        Action = CMD_SetIndex,
+                    }
+                });
+            }
+
+            void CMD_SendCharacter(byte[] cmdBytes)
+            {
+                byte b = cmdBytes[1];
+
+                HandleInputCharacter(b);
+            }
+
+            void CMD_ClearScreen(byte[] cmdBytes)
+            {
+                byte b = cmdBytes[1];
+
+                for (int y = 0; y < TEXT_HEIGHT; y++)
+                {
+                    for (int x = 0; x < TEXT_WIDTH; x++)
+                    {
+                        textBuffer[x, y] = b;
+                    }
+                }
+            }
+
+            void CMD_SetIndex(byte[] cmdBytes)
+            {
+                byte x = (byte) (cmdBytes[1] % TEXT_WIDTH);
+                byte y = (byte) (cmdBytes[2] % TEXT_HEIGHT);
+                byte b = (byte) (cmdBytes[3]);
+
+                textBuffer[x, y] = b;
+                fgColorBuffer[x, y] = currentFGColor;
+                bgColorBuffer[x, y] = currentBGColor;
+            }
 
             public void DrawTextBuffer()
             {
@@ -40,53 +84,31 @@ namespace KAPE8bitEmulator
                 {
                     for (int x = 0; x < TEXT_WIDTH; x++)
                     {
-                        DrawCharacter(x, y, char_gen[textBuffer[x, y]]);
+                        DrawCharacter(x, y, textBuffer[x, y]);
                     }
                 }
             }
 
-            public void DrawCharacter(int x, int y, byte[] c)
+            public void DrawCharacter(int x, int y, byte index)
             {
                 int base_px = x << 3;
                 int base_py = y << 3;
 
                 for (int py = 0; py < 8; py++)
                 {
+                    var cg = CharGenData.CharGen[index * 8 + py];
                     for (int px = 0; px < 8; px++)
                     {
-                        bool pxlOn = ((1 << (7 - px)) & c[py]) >> (7 - px) == 1 ? true : false;
+                        bool pxlOn = ((1 << (7 - px)) & cg) >> (7 - px) == 1 ? true : false;
                         gpu.PutPixel(base_px + px, base_py + py, pxlOn ? fgColorBuffer[x, y] : bgColorBuffer[x, y]);
                     }
                 }
             }
 
-            public void Draw()
+            public override void Draw()
             {
                 DrawTextBuffer();
-            }
-
-            public void HandleCommandBytes(byte[] cmdBytes)
-            {
-                switch (cmdBytes[0])
-                {
-                    case KAPE_GPU_CSM_FIFO.CF_CMD_SEND_CHARACTER:
-                        HandleCmdSendCharacter(cmdBytes[1]);
-                        break;
-                    case KAPE_GPU_CSM_FIFO.CF_CMD_SET_INDEX:
-                        HandleCmdSetIndex(cmdBytes[1], cmdBytes[2], cmdBytes[3]);
-                        break;
-                    case KAPE_GPU_CSM_FIFO.CF_CMD_CLEAR_SCREEN:
-                        HandleCmdClearScreen(cmdBytes[1]);
-                        break;
-                    case KAPE_GPU_CSM_FIFO.CF_CMD_TERMINAL:
-                        _isTerminal = true;
-                        break;
-                    default:
-                        Console.WriteLine($"Unknown MODE command 0x{cmdBytes[0]:X2}");
-                        Console.WriteLine($"FREEZING!");
-                        Thread.Sleep(Timeout.Infinite);
-                        break;
-                }
+                base.Draw();
             }
 
             enum TerminalStateEnum
@@ -98,7 +120,7 @@ namespace KAPE8bitEmulator
 
             TerminalStateEnum terminalState = TerminalStateEnum.Normal;
 
-            void IKAPE_GPU_Mode.HandleTerminalCommandByte(byte cmdByte)
+            public override void HandleTerminalCommandByte(byte cmdByte)
             {
                 switch (terminalState)
                 {
@@ -118,7 +140,7 @@ namespace KAPE8bitEmulator
             {
                 switch (cmdByte)
                 {
-                    case KAPE_GPU_CSM_FIFO.TERM_ESCAPE:
+                    case KAPE_GPU_CMD_FIFO.TERM_ESCAPE:
                         terminalState = TerminalStateEnum.Escape;
                         break;
                     default:
@@ -131,7 +153,7 @@ namespace KAPE8bitEmulator
             { 
                 switch (cmdByte)
                 {
-                    case KAPE_GPU_CSM_FIFO.CF_TERM_COLOR_BINARY:
+                    case KAPE_GPU_CMD_FIFO.CF_TERM_COLOR_BINARY:
                         terminalState = TerminalStateEnum.ColorBinary;
                         break;
                     default:
@@ -153,13 +175,8 @@ namespace KAPE8bitEmulator
             const int CHAR_SPACE        = 0x20;
             const int CHAR_UNDERSCORE   = 0x5F;
 
-            void HandleCmdSendCharacter(byte b)
-            {
-                HandleInputCharacter(b);
-            }
-
             void HandleInputCharacter(byte b)
-            { 
+            {
                 textBuffer[cursorX, cursorY] = b;
                 fgColorBuffer[cursorX, cursorY] = currentFGColor;
                 bgColorBuffer[cursorX, cursorY] = currentBGColor;
@@ -178,28 +195,7 @@ namespace KAPE8bitEmulator
                 bgColorBuffer[cursorX, cursorY] = currentBGColor;
             }
 
-            void HandleCmdSetIndex(byte x, byte y, byte c)
-            {
-                x %= TEXT_WIDTH;
-                y %= TEXT_HEIGHT;
-                    
-                textBuffer[x, y] = c;
-                fgColorBuffer[x, y] = currentFGColor;
-                bgColorBuffer[x, y] = currentBGColor;
-            }
-
-            void HandleCmdClearScreen(byte c)
-            {
-                for (int y = 0; y < TEXT_HEIGHT; y++)
-                {
-                    for (int x = 0; x < TEXT_WIDTH; x++)
-                    {
-                        textBuffer[x, y] = c;
-                    }
-                }
-            }
-
-            public void Reset()
+            public override void Reset()
             {
                 for (int y = 0, i = 0; y < TEXT_HEIGHT; y++)
                 {
@@ -212,6 +208,8 @@ namespace KAPE8bitEmulator
 
                 _isTerminal = false;
                 terminalState = TerminalStateEnum.Normal;
+
+                base.Reset();
             }
         }
     }

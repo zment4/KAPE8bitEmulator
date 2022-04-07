@@ -18,6 +18,7 @@ namespace KAPE8bitEmulator
             {
                 CPU.Write(addr, CPU.A);
             }
+
             void I_STA_ABS()
             {
                 I_STA_X(CPU.FetchAbsoluteAddress());

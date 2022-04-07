@@ -112,12 +112,17 @@ namespace KAPE8bitEmulator
 
         private void SetNegative(byte b)
         {
-            SetNegative(b < 0);
+            SetNegative(((sbyte) b) < 0);
         }
 
         private void SetZero(byte b)
         {
             SetZero(b == 0);
+        }
+
+        private bool GetNegative()
+        {
+            return (P & P_NEGATIVE_MASK) != 0;
         }
     }
 }

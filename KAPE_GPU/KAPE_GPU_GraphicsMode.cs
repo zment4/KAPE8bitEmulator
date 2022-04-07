@@ -9,13 +9,8 @@ namespace KAPE8bitEmulator
 {
     public partial class KAPE_GPU
     {
-        public class KAPE_GPU_GraphicsMode : IKAPE_GPU_Mode
+        public class KAPE_GPU_GraphicsMode : KAPE_GPU_Mode
         {
-            public class CommandDescriptor
-            {
-                public byte Command;
-                public Action<byte[]> Action;
-            }
 
             const int TILE_WIDTH = 8;
             const int TILE_HEIGHT = 8;
@@ -23,45 +18,41 @@ namespace KAPE8bitEmulator
             const int TILEMAP_WIDTH = 32;
             const int TILEMAP_HEIGHT = 24;
 
-            KAPE_GPU gpu;
-            public KAPE_GPU GPU { get => gpu; set => gpu = value; }
-
-            public bool IsTerminal => false;
-
             byte[,] tileMap = new byte[TILEMAP_WIDTH, TILEMAP_HEIGHT];
             byte[][] patternTable = new byte[0x100][];
 
-            List<CommandDescriptor> commands = new List<CommandDescriptor>();
-
-            public KAPE_GPU_GraphicsMode(KAPE_GPU gpu)
+            public KAPE_GPU_GraphicsMode(KAPE_GPU gpu) : base(gpu)
             {
-                this.gpu = gpu;
-
                 for (int i = 0; i < patternTable.Length; i++)
                 {
                     patternTable[i] = new byte[32];
                 }
 
-                commands = new List<CommandDescriptor>() {
+                commands.AddRange(new List<CommandDescriptor>() {
                     new CommandDescriptor()
                     {
-                        Command = KAPE_GPU_CSM_FIFO.CF_CMD_CLEAR_SCREEN,
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_CLEAR_SCREEN,
                         Action = CMD_ClearScreen,
                     },
                     new CommandDescriptor()
                     {
-                        Command = KAPE_GPU_CSM_FIFO.CF_CMD_SEND_PATTERN_DATA,
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_SEND_PATTERN_DATA,
                         Action = CMD_SendPatternData,
                     },
                     new CommandDescriptor()
                     {
-                        Command = KAPE_GPU_CSM_FIFO.CF_CMD_SET_INDEX,
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_SET_INDEX,
                         Action = CMD_SetIndex,
                     },
-                };
+                    new CommandDescriptor()
+                    {
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_FLUSH_FRAME,
+                        Action = CMD_IgnoreCommand,
+                    },
+                });
             }
 
-            public void Draw()
+            public override void Draw()
             {
                 for (int y = 0; y < TILEMAP_HEIGHT; y++)
                     for (int x = 0; x < TILEMAP_WIDTH; x++)
@@ -81,30 +72,64 @@ namespace KAPE8bitEmulator
                                 GPU.PutPixel(sx + 1, sy, p1);
                             }
                     }
-            }
 
-            public void HandleCommandBytes(byte[] cmdBytes)
-            {
-                var cmd = commands.Find(x => x.Command == cmdBytes[0]);
-                if (cmd == null)
+                for (int i = 0; i < 32; i++)
                 {
-                    Console.WriteLine($"Unknown MODE command 0x{cmdBytes[0]:X2}");
-                    Console.WriteLine($"FREEZING!");
-                    Thread.Sleep(Timeout.Infinite);
+                    if (sprites[i].Active)
+                        DrawSprite(i);
                 }
 
-                cmd.Action(cmdBytes);
+                base.Draw();
             }
 
-            public void HandleTerminalCommandByte(byte cmdByte)
+            void DrawSprite(int index)
+            {
+                var spriteY = sprites[index].Y;
+                var spriteX = sprites[index].X / 2 * 2;
+                var patternIndex = sprites[index].TileIndex;
+                for (int y = spriteY, toffs = 0; y < Math.Min(spriteY + 8, FB_HEIGHT);  y++)
+                {
+                    for (int x = spriteX; x < spriteX + 8; x += 2, toffs++)
+                    {
+                        if (x >= FB_WIDTH - 1) continue;
+
+                        byte c = patternTable[patternIndex][toffs];
+                        byte p1 = (byte)((c & 0xf0) >> 4);
+                        byte p2 = (byte)((c & 0xf));
+                        if (p2 != sprites[index].Alpha) GPU.PutPixel(x, y, p2);
+                        if (p1 != sprites[index].Alpha) GPU.PutPixel(x+1, y, p1);
+                    }
+                }
+            }
+
+            public override void HandleCommandBytes(byte[] cmdBytes)
+            {
+                var cmd = commands.Find(x => x.Command == cmdBytes[0]);
+
+                if (cmd == null)
+                {
+                    Console.WriteLine($"Unknown GraphicsMode command 0x{cmdBytes[0]:X2}");
+                    Console.WriteLine($"Falling back to base...");
+
+                    base.HandleCommandBytes(cmdBytes);
+                } else cmd.Action(cmdBytes);
+            }
+
+            public override void HandleTerminalCommandByte(byte cmdByte)
             {
                 throw new NotImplementedException();
             }
 
+            void CMD_IgnoreCommand(byte[] cmdBytes)
+            {
+                // Just ignore the command. This is for commands that have no effect for this specific mode
+                // TODO: maybe log something. 
+            }
+
             void CMD_ClearScreen(byte[] cmdBytes)
             {
-                for (int y = 0; y < FB_HEIGHT; y++)
-                    for (int x = 0; x < FB_WIDTH; x++)
+                for (int y = 0; y < TILEMAP_HEIGHT; y++)
+                    for (int x = 0; x < TILEMAP_WIDTH; x++)
                         tileMap[x, y] = cmdBytes[1];
             }
 
@@ -126,7 +151,7 @@ namespace KAPE8bitEmulator
                 tileMap[x, y] = c;
             }
 
-            public void Reset() 
+            public override void Reset() 
             {
                 for (int y = 0, i = 0; y < TILEMAP_HEIGHT; y++)
                 {

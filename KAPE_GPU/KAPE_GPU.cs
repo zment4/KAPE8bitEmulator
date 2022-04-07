@@ -20,6 +20,7 @@ namespace KAPE8bitEmulator
 
         Color[] _frameBuffer = new Color[FB_WIDTH * FB_HEIGHT];
         Texture2D _outputTexture;
+        RenderTarget2D _integerScaledRenderTarget;
         SpriteBatch _spriteBatch;
 
         public AutoResetEvent ResetFinished = new AutoResetEvent(false);
@@ -56,7 +57,7 @@ namespace KAPE8bitEmulator
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _outputTexture = new Texture2D(GraphicsDevice, FB_WIDTH+FB_BORDER*2, FB_HEIGHT+FB_BORDER*2);
             _frameBuffer = Enumerable.Repeat(Color.Black, _outputTexture.Width * _outputTexture.Height).ToArray();
-
+            _integerScaledRenderTarget = new RenderTarget2D(GraphicsDevice, 1, 1);
             base.LoadContent();
         }
 
@@ -67,34 +68,70 @@ namespace KAPE8bitEmulator
             var xScale = (float)Game.Window.ClientBounds.Width / _outputTexture.Width;
             var yScale = (float)Game.Window.ClientBounds.Height / _outputTexture.Height;
 
-            var xPos = 0.5f * _outputTexture.Width;
-            var yPos = 0.5f * _outputTexture.Height;
+            int intXScale = (int)Math.Floor(xScale);
+            int intYScale = (int)Math.Floor(yScale);
+
+            var xPos = 0.5f * _integerScaledRenderTarget.Width;
+            var yPos = 0.5f * _integerScaledRenderTarget.Height;
+
+            int intXPos = (int)Math.Floor(0.5f * _outputTexture.Width);
+            int intYPos = (int)Math.Floor(0.5f * _outputTexture.Height);
 
             if (xScale > yScale)
             {
                 xPos *= (xScale / yScale);
+                intXPos *= (intXScale / intYScale);
                 xScale = yScale;
+                intXScale = intYScale;
             }
             if (yScale > xScale)
             {
                 yPos *= (yScale / xScale);
+                intYPos *= (intYScale / intXScale);
                 yScale = xScale;
+                intYScale = intXScale;
             }
+
+            int intWidth = intXScale * _outputTexture.Width;
+            int intHeight = intYScale * _outputTexture.Height;
+
+            if (_integerScaledRenderTarget.Width != intWidth || _integerScaledRenderTarget.Height != intHeight)
+            {
+                _integerScaledRenderTarget = new RenderTarget2D(GraphicsDevice, intWidth, intHeight);
+            }
+
+            GraphicsDevice.SetRenderTarget(_integerScaledRenderTarget);
+            _spriteBatch.Begin(
+                SpriteSortMode.Deferred,
+                null,
+                SamplerState.PointClamp,
+                null,
+                null,
+                null,
+                Matrix.CreateScale(intXScale, intYScale, 1f)
+            );
+
+            _outputTexture.SetData(_frameBuffer);
+            _spriteBatch.Draw(_outputTexture, new Vector2(intXPos, intYPos), null, Color.White, 0f, new Vector2(0.5f * _outputTexture.Width, 0.5f * _outputTexture.Height), Vector2.One, SpriteEffects.None, 0f);
+
+            _spriteBatch.End();
+            GraphicsDevice.SetRenderTarget(null);
 
             _spriteBatch.Begin(
                 SpriteSortMode.Deferred,
                 null,
-                SamplerState.AnisotropicWrap,
+                SamplerState.AnisotropicClamp,
                 null,
                 null,
                 null,
-                Matrix.CreateScale(xScale, yScale, 1f)
+                Matrix.CreateScale(xScale / intXScale, yScale / intYScale, 1f)
             );
 
             _outputTexture.SetData(_frameBuffer);
-            _spriteBatch.Draw(_outputTexture, new Vector2(xPos, yPos), null, Color.White, 0f, new Vector2(0.5f * _outputTexture.Width, 0.5f * _outputTexture.Height), Vector2.One, SpriteEffects.None, 0f);
+            _spriteBatch.Draw(_integerScaledRenderTarget, new Vector2(xPos, yPos), null, Color.White, 0f, new Vector2(0.5f * _integerScaledRenderTarget.Width, 0.5f * _integerScaledRenderTarget.Height), Vector2.One, SpriteEffects.None, 0f);
 
             _spriteBatch.End();
+
             base.Draw(gameTime);
         }
 
@@ -203,41 +240,62 @@ namespace KAPE8bitEmulator
 
             switch (cmdByte)
             {
-                case KAPE_GPU_CSM_FIFO.CF_CMD_SEND_CHARACTER:
-                    byteCountRemaining = KAPE_GPU_CSM_FIFO.CF_CMD_SEND_CHARACTER_Params;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SEND_CHARACTER:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SEND_CHARACTER_Params;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_SET_INDEX:
-                    byteCountRemaining = KAPE_GPU_CSM_FIFO.CF_CMD_SET_INDEX_Params;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_INDEX:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_INDEX_Params;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_CLEAR_SCREEN:
-                    byteCountRemaining = KAPE_GPU_CSM_FIFO.CF_CMD_CLEAR_SCREEN_Params;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_CLEAR_SCREEN:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_CLEAR_SCREEN_Params;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_SEND_PATTERN_DATA:
-                    byteCountRemaining = KAPE_GPU_CSM_FIFO.CF_CMD_SEND_PATTERN_DATA_Params;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SEND_PATTERN_DATA:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SEND_PATTERN_DATA_Params;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_FLUSH_FRAME:
+                case KAPE_GPU_CMD_FIFO.CF_CMD_FLUSH_FRAME:
                     CurrentMode.HandleCommandBytes(cmdBuffer);
                     currentIndex = 0;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_DRAW_LINE:
-                    byteCountRemaining = KAPE_GPU_CSM_FIFO.CF_CMD_DRAW_LINE_Params;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_DRAW_LINE:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_DRAW_LINE_Params;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_SETMODE_TEXT:
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SETMODE_TEXT:
                     CurrentMode = gpuModes.Find(x => x is KAPE_GPU_TextMode);
                     currentIndex = 0;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_SETMODE_LORES:
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SETMODE_LORES:
                     CurrentMode = gpuModes.Find(x => x is KAPE_GPU_LoresMode);
                     currentIndex = 0;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_SETMODE_GRAPHICS:
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SETMODE_GRAPHICS:
                     CurrentMode = gpuModes.Find(x => x is KAPE_GPU_GraphicsMode);
                     currentIndex = 0;
                     byteCountRemaining = 0;
                     break;
-                case KAPE_GPU_CSM_FIFO.CF_CMD_TERMINAL:
+                case KAPE_GPU_CMD_FIFO.CF_CMD_TERMINAL:
                     CurrentMode.HandleCommandBytes(cmdBuffer);
                     currentIndex = 0;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_INDEX:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_INDEX_Params;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_XY:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_XY_Params;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_ACTIVE:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_ACTIVE_Params;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_NOT_ACTIVE:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_NOT_ACTIVE_Params;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_ALPHA_COLOR:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_ALPHA_COLOR_Params;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_X:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_X_Params;
+                    break;
+                case KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_Y:
+                    byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_Y_Params;
                     break;
                 default:
                     Console.WriteLine($"\nUnknown GPU Command: 0x{cmdByte:X2}");

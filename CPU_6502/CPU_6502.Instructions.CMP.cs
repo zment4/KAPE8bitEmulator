@@ -17,11 +17,11 @@ namespace KAPE8bitEmulator
 
             void I_CMP_X(byte a, byte b)
             {
-                int res = a - b;
+                byte res = (byte) (a - b);
 
-                CPU.SetNegative((byte)(sbyte)res);
-                CPU.SetZero((byte)res);
-                CPU.SetCarry(res >= 0);
+                CPU.SetNegative(res);
+                CPU.SetZero(res);
+                CPU.SetCarry(a >= b);
             }
 
             void I_CMP_IMM()
@@ -42,6 +42,10 @@ namespace KAPE8bitEmulator
             void I_CPY_IMM()
             {
                 I_CMP_X(CPU.Y, CPU.FetchOperand());
+            }
+            void I_CPX_IMM()
+            {
+                I_CMP_X(CPU.X, CPU.FetchOperand());
             }
         }
     }

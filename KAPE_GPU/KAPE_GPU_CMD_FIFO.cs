@@ -1,6 +1,6 @@
 namespace KAPE8bitEmulator {
 	partial class KAPE_GPU {
-		public static class KAPE_GPU_CSM_FIFO {
+		public static class KAPE_GPU_CMD_FIFO {
 			public const int CF_CMD_SEND_CHARACTER            = 0x00;
 			public const int CF_CMD_SEND_CHARACTER_Params     = 1;
 			public const int CF_CMD_SET_COLOR                 = 0x01;
@@ -10,13 +10,21 @@ namespace KAPE8bitEmulator {
 			public const int CF_CMD_SET_BORDER_COLOR          = 0x11;
 			public const int CF_CMD_SET_SPRITE                = 0x20;
 			public const int CF_CMD_SET_SPRITE_ACTIVE         = 0x21;
+			public const int CF_CMD_SET_SPRITE_ACTIVE_Params  = 1;
 			public const int CF_CMD_SET_SPRITE_NOT_ACTIVE     = 0x22;
+			public const int CF_CMD_SET_SPRITE_NOT_ACTIVE_Params = 1;
 			public const int CF_CMD_SET_SPRITE_INDEX          = 0x25;
+			public const int CF_CMD_SET_SPRITE_INDEX_Params   = 2;
 			public const int CF_CMD_SET_SPRITE_X              = 0x26;
+			public const int CF_CMD_SET_SPRITE_X_Params       = 2;
 			public const int CF_CMD_SET_SPRITE_Y              = 0x27;
+			public const int CF_CMD_SET_SPRITE_Y_Params       = 2;
 			public const int CF_CMD_SET_SPRITE_HOTSPOTX       = 0x28;
 			public const int CF_CMD_SET_SPRITE_HOTSPOTY       = 0x29;
 			public const int CF_CMD_SET_SPRITE_ALPHA_COLOR    = 0x30;
+			public const int CF_CMD_SET_SPRITE_ALPHA_COLOR_Params = 2;
+			public const int CF_CMD_SET_SPRITE_XY             = 0x31;
+			public const int CF_CMD_SET_SPRITE_XY_Params      = 3;
 			public const int CF_CMD_SETMODE_TEXT              = 0x40;
 			public const int CF_CMD_SETMODE_GRAPHICS          = 0x41;
 			public const int CF_CMD_SETMODE_COMBINED          = 0x42;

@@ -9,50 +9,37 @@ namespace KAPE8bitEmulator
 {
     public partial class KAPE_GPU
     {
-        public class KAPE_GPU_LoresMode : IKAPE_GPU_Mode
+        public class KAPE_GPU_LoresMode : KAPE_GPU_Mode
         {
-            public class CommandDescriptor
-            {
-                public byte Command;
-                public Action<byte[]> Action;
-            }
-
             const int FB_WIDTH = 128;
             const int FB_HEIGHT = 96;
-
-            KAPE_GPU gpu;
-            public KAPE_GPU GPU { get => gpu; set => gpu = value; }
-
-            public bool IsTerminal => false;
 
             public byte[,] backingFrameBuffer = new byte[FB_WIDTH, FB_HEIGHT];
             public byte[,] frameBuffer = new byte[FB_WIDTH, FB_HEIGHT];
 
-            List<CommandDescriptor> commands = new List<CommandDescriptor>();
-
-            public KAPE_GPU_LoresMode(KAPE_GPU gpu)
+            public KAPE_GPU_LoresMode(KAPE_GPU gpu) : base(gpu)
             {
                 this.gpu = gpu;
                 commands = new List<CommandDescriptor>() {
                     new CommandDescriptor()
                     {
-                        Command = KAPE_GPU_CSM_FIFO.CF_CMD_CLEAR_SCREEN,
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_CLEAR_SCREEN,
                         Action = CMD_ClearScreen,
                     },
                     new CommandDescriptor()
                     {
-                        Command = KAPE_GPU_CSM_FIFO.CF_CMD_FLUSH_FRAME,
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_FLUSH_FRAME,
                         Action = CMD_FlushFrame,
                     },
                     new CommandDescriptor()
                     {
-                        Command = KAPE_GPU_CSM_FIFO.CF_CMD_DRAW_LINE,
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_DRAW_LINE,
                         Action = CMD_DrawLine,
                     }
                 };
             }
 
-            public void Draw()
+            public override void Draw()
             {
                 for (int y = 0; y < FB_HEIGHT; y++)
                 {
@@ -69,7 +56,7 @@ namespace KAPE8bitEmulator
                 }
             }
 
-            public void HandleCommandBytes(byte[] cmdBytes)
+            public override void HandleCommandBytes(byte[] cmdBytes)
             {
                 var cmd = commands.Find(x => x.Command == cmdBytes[0]);
                 if (cmd == null)
@@ -80,11 +67,13 @@ namespace KAPE8bitEmulator
                 }
 
                 cmd.Action(cmdBytes);
+
+                base.HandleCommandBytes(cmdBytes);
             }
 
-            public void HandleTerminalCommandByte(byte cmdByte)
+            public override void HandleTerminalCommandByte(byte cmdByte)
             {
-                throw new NotImplementedException();
+                base.HandleTerminalCommandByte(cmdByte);
             }
 
             void CMD_ClearScreen(byte[] cmdBytes)
@@ -136,7 +125,10 @@ namespace KAPE8bitEmulator
                 backingFrameBuffer[x % FB_WIDTH, y % FB_HEIGHT] = (byte) (c & 0xf);
             }
 
-            public void Reset() { }
+            public override void Reset() 
+            {
+                base.Reset();
+            }
         }
     }
 }

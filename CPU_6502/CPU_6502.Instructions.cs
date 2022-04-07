@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace KAPE8bitEmulator
 {
@@ -36,7 +37,21 @@ namespace KAPE8bitEmulator
             public const byte LSR_ACC = 0x4A;
             public const byte INY_IMP = 0xC8;
             public const byte INC_ZPG = 0xE6;
-
+            public const byte TYA_IMP = 0x98;
+            public const byte DEX_IMP = 0xCA;
+            public const byte LDX_ABS = 0xAE;
+            public const byte TXA_IMP = 0x8A;
+            public const byte TAY_IMP = 0xA8;
+            public const byte TAX_IMP = 0xAA;
+            public const byte DEY_IMP = 0x88;
+            public const byte BMI_REL = 0x30;
+            public const byte SBC_ABS = 0xED;
+            public const byte CPX_IMM = 0xE0;
+            public const byte ORA_IMM = 0x09;
+            public const byte JMP_ABI = 0x6C;
+            public const byte ORA_ZPG = 0x05;
+            public const byte BCS_REL = 0xB0;
+            public const byte STX_ABS = 0x8E;
             public enum AddressingModeEnum
             {
                 Accumulator,
@@ -52,6 +67,7 @@ namespace KAPE8bitEmulator
                 ZeroPageIndexedY,
                 IndexedIndirect,
                 IndirectIndexed,
+                AbsoluteIndirect,
             }
 
             public class InstructionDescriptor
@@ -81,6 +97,16 @@ namespace KAPE8bitEmulator
                     Cycles = 3,
                     Mnemonic = "JMP",
                     AddressingMode = AddressingModeEnum.Absolute,
+                };
+
+                // Initialize all the instructions, their functions and how many cycles they take (for counting/limiting speed)
+                instructionDescriptors[JMP_ABI] = new InstructionDescriptor()
+                {
+                    Instruction = JMP_ABI,
+                    Action = I_JMP_ABI,
+                    Cycles = 5,
+                    Mnemonic = "JMP",
+                    AddressingMode = AddressingModeEnum.AbsoluteIndirect,
                 };
 
                 instructionDescriptors[LDA_IMM] = new InstructionDescriptor()
@@ -236,6 +262,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Relative,
                 };
 
+                instructionDescriptors[BMI_REL] = new InstructionDescriptor()
+                {
+                    Instruction = BMI_REL,
+                    Action = I_BMI_REL,
+                    Cycles = 0, // dynamic, depends on page boundary crossing, set in action
+                    Mnemonic = "BMI",
+                    AddressingMode = AddressingModeEnum.Relative,
+                };
+
                 instructionDescriptors[PLA_IMP] = new InstructionDescriptor()
                 {
                     Instruction = PLA_IMP,
@@ -303,9 +338,18 @@ namespace KAPE8bitEmulator
                 {
                     Instruction = SBC_IMM,
                     Action = I_SBC_IMM,
-                    Cycles = 3,
+                    Cycles = 2,
                     Mnemonic = "SBC",
                     AddressingMode = AddressingModeEnum.Immediate,
+                };
+
+                instructionDescriptors[SBC_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = SBC_ABS,
+                    Action = I_SBC_ABS,
+                    Cycles = 4,
+                    Mnemonic = "SBC",
+                    AddressingMode = AddressingModeEnum.Absolute,
                 };
 
                 instructionDescriptors[ADC_IMM] = new InstructionDescriptor()
@@ -398,6 +442,24 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Immediate,
                 };
 
+                instructionDescriptors[ORA_IMM] = new InstructionDescriptor()
+                {
+                    Instruction = ORA_IMM,
+                    Action = I_ORA_IMM,
+                    Cycles = 2,
+                    Mnemonic = "ORA",
+                    AddressingMode = AddressingModeEnum.Immediate,
+                };
+
+                instructionDescriptors[ORA_ZPG] = new InstructionDescriptor()
+                {
+                    Instruction = ORA_ZPG,
+                    Action = I_ORA_ZPG,
+                    Cycles = 3,
+                    Mnemonic = "ORA",
+                    AddressingMode = AddressingModeEnum.ZeroPage,
+                };
+
                 instructionDescriptors[ASL_ACC] = new InstructionDescriptor()
                 {
                     Instruction = ASL_ACC,
@@ -452,6 +514,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Immediate,
                 };
 
+                instructionDescriptors[CPX_IMM] = new InstructionDescriptor()
+                {
+                    Instruction = CPX_IMM,
+                    Action = I_CPX_IMM,
+                    Cycles = 2,
+                    Mnemonic = "CPX",
+                    AddressingMode = AddressingModeEnum.Immediate,
+                };
+
                 instructionDescriptors[ADC_IIX] = new InstructionDescriptor()
                 {
                     Instruction = ADC_IIX,
@@ -469,11 +540,102 @@ namespace KAPE8bitEmulator
                     Mnemonic = "CMP",
                     AddressingMode = AddressingModeEnum.ZeroPage,
                 };
+
+                instructionDescriptors[TYA_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = TYA_IMP,
+                    Action = I_TYA_IMP,
+                    Cycles = 2,
+                    Mnemonic = "TYA",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[DEX_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = DEX_IMP,
+                    Action = I_DEX_IMP,
+                    Cycles = 2,
+                    Mnemonic = "DEX",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[DEY_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = DEY_IMP,
+                    Action = I_DEY_IMP,
+                    Cycles = 2,
+                    Mnemonic = "DEY",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[LDX_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = LDX_ABS,
+                    Action = I_LDX_ABS,
+                    Cycles = 4,
+                    Mnemonic = "LDX",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
+                instructionDescriptors[TXA_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = TXA_IMP,
+                    Action = I_TXA_IMP,
+                    Cycles = 2,
+                    Mnemonic = "TXA",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[TAY_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = TAY_IMP,
+                    Action = I_TAY_IMP,
+                    Cycles = 2,
+                    Mnemonic = "TAY",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[TAX_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = TAX_IMP,
+                    Action = I_TAX_IMP,
+                    Cycles = 2,
+                    Mnemonic = "TAX",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[BCS_REL] = new InstructionDescriptor()
+                {
+                    Instruction = BCS_REL,
+                    Action = I_BCS_REL,
+                    Cycles = 0, // dynamic, depends on page boundary crossing, set in action
+                    Mnemonic = "BCS",
+                    AddressingMode = AddressingModeEnum.Relative,
+                };
+
+                instructionDescriptors[STX_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = STX_ABS,
+                    Action = I_STX_ABS,
+                    Cycles = 4,
+                    Mnemonic = "STX",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
+                var inst_count = instructionDescriptors.Count(x => x != null);
+                Console.Out.WriteLine($"{inst_count}/103 ({(int) (inst_count / 103f * 100)}%) opcodes implemented.");
             }
 
             void I_JMP_ABS()
             {
                 CPU.PC = CPU.FetchAbsoluteAddress();
+            }
+
+            // TODO: Decide whether to make it behave like MOS6502 and INC only the address low
+            void I_JMP_ABI()
+            {
+                UInt16 addr = CPU.FetchAbsoluteAddress();
+                CPU.PC = (UInt16) ((CPU.Read(addr) << 8) | (CPU.Read((UInt16)(addr + 1))));
             }
 
             void I_CLD_IMP()
@@ -510,7 +672,23 @@ namespace KAPE8bitEmulator
 
                 // Set cycles accordingly depending on the page boundary
                 instructionDescriptors[BCC_REL].Cycles =
-                    (oldPCh != newPCh) ? 3 : 2;
+                    (oldPCh != newPCh) ? 4 : 3;
+            }
+
+            void I_BCS_REL()
+            {
+                instructionDescriptors[BCC_REL].Cycles = 2;
+
+                var val = CPU.FetchOperand();
+                if ((CPU.P & P_CARRY_MASK) != 1) return;
+
+                var oldPCh = CPU.PC & 0xff00;
+                CPU.PC = (UInt16)(CPU.PC + ((sbyte)val));
+                var newPCh = CPU.PC & 0xff00;
+
+                // Set cycles accordingly depending on the page boundary
+                instructionDescriptors[BCC_REL].Cycles =
+                    (oldPCh != newPCh) ? 4 : 3;
             }
 
             void I_BNE_REL()
@@ -521,13 +699,15 @@ namespace KAPE8bitEmulator
 
                 if(CPU.GetZero()) return;
 
+                instructionDescriptors[BNE_REL].Cycles += 1;
+
                 var oldPCh = CPU.PC & 0xff00;
                 CPU.PC = (UInt16)(CPU.PC + ((sbyte)val));
                 var newPCh = CPU.PC & 0xff00;
 
                 // Set cycles accordingly depending on the page boundary
-                instructionDescriptors[BNE_REL].Cycles =
-                    (oldPCh != newPCh) ? 3 : 2;
+                instructionDescriptors[BNE_REL].Cycles +=
+                    (oldPCh != newPCh) ? 1 : 0;
             }
 
             void I_PHA_IMP()
@@ -580,6 +760,11 @@ namespace KAPE8bitEmulator
                 CPU.Write(CPU.FetchOperand(), CPU.X);
             }
 
+            void I_STX_ABS()
+            {
+                CPU.Write(CPU.FetchAbsoluteAddress(), CPU.X);
+            }
+
             void I_LDY_IMM()
             {
                 CPU.Y = CPU.FetchOperand();
@@ -597,6 +782,18 @@ namespace KAPE8bitEmulator
                 CPU.SetCarry(val >= 0);
                 CPU.SetOverflow(val < -127 || val > 127);
                 byte res = (byte) (sbyte) val;
+                CPU.SetNegative((res & (1 << 7)) != 0);
+                CPU.SetZero(res == 0);
+                CPU.A = res;
+            }
+
+            void I_SBC_ABS()
+            {
+                var borrow = CPU.GetCarry() ? 0 : 1;
+                int val = CPU.A - CPU.Read(CPU.FetchAbsoluteAddress()) - borrow;
+                CPU.SetCarry(val >= 0);
+                CPU.SetOverflow(val < -127 || val > 127);
+                byte res = (byte)(sbyte)val;
                 CPU.SetNegative((res & (1 << 7)) != 0);
                 CPU.SetZero(res == 0);
                 CPU.A = res;
@@ -652,6 +849,20 @@ namespace KAPE8bitEmulator
                 CPU.SetZero(CPU.A == 0);
             }
 
+            void I_ORA_IMM()
+            {
+                CPU.A = (byte)(CPU.A | CPU.FetchOperand());
+                CPU.SetNegative((CPU.A & (1 << 7)) != 0);
+                CPU.SetZero(CPU.A == 0);
+            }
+
+            void I_ORA_ZPG()
+            {
+                CPU.A = (byte)(CPU.A | CPU.Read(CPU.FetchOperand()));
+                CPU.SetNegative((CPU.A & (1 << 7)) != 0);
+                CPU.SetZero(CPU.A == 0);
+            }
+
             void I_ASL_ACC()
             {
                 int b = CPU.A << 1;
@@ -701,6 +912,75 @@ namespace KAPE8bitEmulator
                 CPU.SetNegative(val);
                 CPU.SetZero(val);
                 CPU.Write(addr, val);
+            }
+
+            void I_TYA_IMP()
+            {
+                CPU.A = CPU.Y;
+                CPU.SetZero(CPU.A);
+                CPU.SetNegative(CPU.A);
+            }
+
+            void I_DEX_IMP()
+            {
+                CPU.X--;
+                CPU.SetZero(CPU.X);
+                CPU.SetNegative(CPU.X);
+            }
+
+            void I_LDX_ABS()
+            {
+                var addr = CPU.FetchAbsoluteAddress();
+                CPU.X = CPU.Read(addr);
+                CPU.SetZero(CPU.X);
+                CPU.SetNegative(CPU.X);
+            }
+
+            void I_TXA_IMP()
+            {
+                CPU.A = CPU.X;
+                CPU.SetZero(CPU.A);
+                CPU.SetNegative(CPU.A);
+            }
+
+            void I_TAY_IMP()
+            {
+                CPU.Y = CPU.A;
+                CPU.SetZero(CPU.Y);
+                CPU.SetNegative(CPU.Y);
+            }
+
+            void I_TAX_IMP()
+            {
+                CPU.X = CPU.A;
+                CPU.SetZero(CPU.X);
+                CPU.SetNegative(CPU.X);
+            }
+
+            void I_DEY_IMP()
+            {
+                CPU.Y--;
+                CPU.SetZero(CPU.Y);
+                CPU.SetNegative(CPU.Y);
+            }
+
+            void I_BMI_REL()
+            {
+                instructionDescriptors[BMI_REL].Cycles = 2;
+
+                var val = CPU.FetchOperand();
+
+                if (!CPU.GetNegative()) return;
+
+                instructionDescriptors[BMI_REL].Cycles += 1;
+
+                var oldPCh = CPU.PC & 0xff00;
+                CPU.PC = (UInt16)(CPU.PC + ((sbyte)val));
+                var newPCh = CPU.PC & 0xff00;
+
+                // Set cycles accordingly depending on the page boundary
+                instructionDescriptors[BMI_REL].Cycles +=
+                    (oldPCh != newPCh) ? 1 : 0;
             }
         }
     }

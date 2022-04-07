@@ -19,7 +19,8 @@ namespace KAPE8bitEmulator
             void I_LDA_X(byte b)
             {
                 CPU.A = b;
-                CPU.SetZero(b == 0);
+                CPU.SetZero(CPU.A);
+                CPU.SetNegative(CPU.A);
             }
 
             void I_LDA_IMM()

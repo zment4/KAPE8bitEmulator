@@ -41,11 +41,13 @@ namespace KAPE8bitEmulator
         /// </summary>
         protected override void Initialize()
         {
+            string fileName = Program.Args[0];
+
             _KAPE_GPU = new KAPE_GPU(this);
             Components.Add(_KAPE_GPU);
 
             _SRAM64K = new SRAM64k();
-            _SRAM64K.FillRam(@"D:\6502\scatternoid.bin");
+            _SRAM64K.FillRam(fileName);
 
             _KAPE_CPU = new CPU_6502();
 
@@ -59,7 +61,7 @@ namespace KAPE8bitEmulator
             _KAPE_GPU.EnterCMDQThread();
             _KAPE_CPU.EnterCycleLoop();
 
-            originalTitle = "KAPE8bitEmulator";
+            originalTitle = $"KAPE8bitEmulator - {fileName}";
 
             new Thread(() =>
             {
@@ -77,10 +79,10 @@ namespace KAPE8bitEmulator
                         _KAPE_CPU.TriggerNMI();
                         lastNMIticks = elapsedTicks;
                     }
-
+                     
                     Thread.Sleep(0);
                 }
-            }).Start();
+            }) { IsBackground = true }.Start();
             base.Initialize();
         }
 
@@ -118,7 +120,7 @@ namespace KAPE8bitEmulator
             if (cps > 1000) { cps /= 1000; unit = "kHz"; }
             if (cps > 1000) { cps /= 1000; unit = "MHz"; }
 
-            Window.Title = $"{originalTitle} - {cps:F3} {unit}";
+            Window.Title = $"{originalTitle} - {cps:F3} {unit} - {_KAPE_CPU.CurrentNMIPerSecond} NPS - {1f / gameTime.ElapsedGameTime.TotalSeconds:N2} FPS";
             currentKeyState = Keyboard.GetState();
 
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
