@@ -1,6 +1,9 @@
-﻿using Microsoft.Xna.Framework;
+﻿#define DEBUG
+
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 using System.Diagnostics;
 using System.Threading;
 
@@ -11,6 +14,7 @@ namespace KAPE8bitEmulator
     /// </summary>
     public class KAPE8bitEmulator : Game
     {
+        public static bool DebugMode = false;
         const int NMI_FPS = 62;
 
         GraphicsDeviceManager _graphics;
@@ -30,6 +34,9 @@ namespace KAPE8bitEmulator
             Content.RootDirectory = "Content";
 
             Window.AllowUserResizing = true;
+
+            if (Program.Args.Length > 1) 
+                DebugMode = Program.Args[1] == "-debug";
         }
 
 
@@ -43,6 +50,7 @@ namespace KAPE8bitEmulator
         {
             string fileName = Program.Args[0];
 
+
             _KAPE_GPU = new KAPE_GPU(this);
             Components.Add(_KAPE_GPU);
 
@@ -51,8 +59,16 @@ namespace KAPE8bitEmulator
 
             _KAPE_CPU = new CPU_6502();
 
+            // Add input hooks
+            _KAPE_CPU.RegisterIRQ(InputIRQState);
+
+            _KAPE_CPU.RegisterWrite(0xf7ff, 0xf7ff, OutputToConsole);
+
             _KAPE_GPU.RegisterWrite(_KAPE_CPU);
             _SRAM64K.RegisterMap(_KAPE_CPU);
+
+            _KAPE_CPU.RegisterRead(0x8000, 0x8000, ResetInputIRQState);
+            _KAPE_CPU.RegisterRead(0xA000, 0xA000, ReadInput);
 
             _KAPE_CPU.Reset();
             _KAPE_GPU.Reset();
@@ -86,25 +102,11 @@ namespace KAPE8bitEmulator
             base.Initialize();
         }
 
-        /// <summary>
-        /// LoadContent will be called once per game and is the place to load
-        /// all of your content.
-        /// </summary>
         protected override void LoadContent()
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            // TODO: use this.Content to load your game content here
-        }
-
-        /// <summary>
-        /// UnloadContent will be called once per game and is the place to unload
-        /// game-specific content.
-        /// </summary>
-        protected override void UnloadContent()
-        {
-            // TODO: Unload any non ContentManager content here
         }
 
         Rectangle _windowSize;
@@ -154,27 +156,65 @@ namespace KAPE8bitEmulator
                 _KAPE_CPU.Start();
             }
 
+            bool p1_up = currentKeyState.IsKeyDown(Keys.W);
+            bool p1_down = currentKeyState.IsKeyDown(Keys.S);
+            bool p1_left = currentKeyState.IsKeyDown(Keys.A);
+            bool p1_right = currentKeyState.IsKeyDown(Keys.D);
+
+            bool p2_up = currentKeyState.IsKeyDown(Keys.Up);
+            bool p2_down = currentKeyState.IsKeyDown(Keys.Down);
+            bool p2_left = currentKeyState.IsKeyDown(Keys.Left);
+            bool p2_right = currentKeyState.IsKeyDown(Keys.Right);
+
+            EncodeInputForIRQ(p1_up, p1_down, p1_left, p1_right, p2_up, p2_down, p2_left, p2_right);
+
             lastKeyState = currentKeyState;
-            //for (int y = 0; y < 192; y++)
-            //    for (int x = 0; x < 256; x++)
-            //        _KAPE_GPU.PutPixel(x, y, rand.Next() % 0xf);
 
             base.Update(gameTime);
         }
 
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        private void EncodeInputForIRQ(bool p1_up, bool p1_down, bool p1_left, bool p1_right, bool p2_up, bool p2_down, bool p2_left, bool p2_right)
+        {
+            lastEncodedInput = encodedInput;
+            encodedInput = 0;
+            if (p1_up) encodedInput |= 0b00010000;
+            if (p1_down) encodedInput |= 0b01000000;
+            if (p1_left) encodedInput |= 0b10000000;
+            if (p1_right) encodedInput |= 0b00100000;
+
+            if (encodedInput != lastEncodedInput)
+            {
+                pullInputIRQLow = true;
+//                Console.WriteLine($"{Convert.ToString(encodedInput, 2).PadLeft(8, '0')}");
+            }
+        }
+
         protected override void Draw(GameTime gameTime)
         {
             _drawGameTime = gameTime;
 
             GraphicsDevice.Clear(Color.Black);
 
-            // TODO: Add your drawing code here
-
             base.Draw(gameTime);
+        }
+
+        byte lastEncodedInput = 0;
+        byte encodedInput = 0;
+        bool pullInputIRQLow = false;
+
+        protected bool InputIRQState() => pullInputIRQLow;
+
+        protected byte ReadInput(UInt16 address) => encodedInput;
+
+        protected byte ResetInputIRQState(UInt16 address) 
+        {
+            pullInputIRQLow = false;
+            return 0;
+        }
+
+        protected void OutputToConsole(UInt16 address, byte value)
+        {
+            Console.WriteLine($"DBG: {value.ToString().PadLeft(3)} ${value:X2} %{Convert.ToString(value, 2).PadLeft(8, '0')}");
         }
     }
 }

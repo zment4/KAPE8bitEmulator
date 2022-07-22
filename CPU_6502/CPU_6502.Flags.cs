@@ -79,7 +79,7 @@ namespace KAPE8bitEmulator
 
         private bool IsIntDisable()
         {
-            return (P | P_INTDISABLE_MASK) != 0;
+            return (P & P_INTDISABLE_MASK) != 0;
         }
 
         private void SetOverflow(bool v)

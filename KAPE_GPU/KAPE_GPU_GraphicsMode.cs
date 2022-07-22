@@ -108,8 +108,8 @@ namespace KAPE8bitEmulator
 
                 if (cmd == null)
                 {
-                    Console.WriteLine($"Unknown GraphicsMode command 0x{cmdBytes[0]:X2}");
-                    Console.WriteLine($"Falling back to base...");
+                    Program.consoleOut.WriteLine($"Unknown GraphicsMode command 0x{cmdBytes[0]:X2}");
+                    Program.consoleOut.WriteLine($"Falling back to base...");
 
                     base.HandleCommandBytes(cmdBytes);
                 } else cmd.Action(cmdBytes);

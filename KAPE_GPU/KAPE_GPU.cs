@@ -186,7 +186,7 @@ namespace KAPE8bitEmulator
                         {
                             if (CMDQ.Count > 2048)
                             {
-                                Console.WriteLine("CMDQ Buffer OVERFLOW! Discarding all over 2K");
+                                Program.consoleOut.WriteLine("CMDQ Buffer OVERFLOW! Discarding all over 2K");
                                 // Scrap all CMDQ bytes over 2K (to mimic HW)
                                 CMDQ = new Queue<byte>(CMDQ.Take(2048));
                             }
@@ -204,7 +204,7 @@ namespace KAPE8bitEmulator
                     }
                     // Introduce a waitstate to simulate screen updates and command handling waitstates
                     // TODO: make it more conformant with real elapsed time instead
-                    Thread.Sleep(10);
+                    Thread.Sleep(40);
                 }
             }) { IsBackground = true }.Start();
         }
@@ -298,8 +298,8 @@ namespace KAPE8bitEmulator
                     byteCountRemaining = KAPE_GPU_CMD_FIFO.CF_CMD_SET_SPRITE_Y_Params;
                     break;
                 default:
-                    Console.WriteLine($"\nUnknown GPU Command: 0x{cmdByte:X2}");
-                    Console.WriteLine($"FREEZING GPU");
+                    Program.consoleOut.WriteLine($"\nUnknown GPU Command: 0x{cmdByte:X2}");
+                    Program.consoleOut.WriteLine($"FREEZING GPU");
                     Thread.Sleep(Timeout.Infinite);
                     currentIndex = 0;
                     break;

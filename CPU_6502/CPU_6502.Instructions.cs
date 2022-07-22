@@ -52,6 +52,10 @@ namespace KAPE8bitEmulator
             public const byte ORA_ZPG = 0x05;
             public const byte BCS_REL = 0xB0;
             public const byte STX_ABS = 0x8E;
+            public const byte ORA_ABS = 0x0D;
+            public const byte PHP_IMP = 0x08;
+            public const byte PLP_IMP = 0x28;
+
             public enum AddressingModeEnum
             {
                 Accumulator,
@@ -622,8 +626,44 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Absolute,
                 };
 
+                instructionDescriptors[ORA_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = ORA_ABS,
+                    Action = I_ORA_ABS,
+                    Cycles = 4,
+                    Mnemonic = "ORA",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
+                instructionDescriptors[PHP_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = PHP_IMP,
+                    Action = I_PHP_IMP,
+                    Cycles = 3,
+                    Mnemonic = "PHP",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[PLP_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = PLP_IMP,
+                    Action = I_PLP_IMP,
+                    Cycles = 4,
+                    Mnemonic = "PLP",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
+
                 var inst_count = instructionDescriptors.Count(x => x != null);
-                Console.Out.WriteLine($"{inst_count}/103 ({(int) (inst_count / 103f * 100)}%) opcodes implemented.");
+                Console.WriteLine($"{inst_count}/151 ({(int) (inst_count / 151f * 100)}%) opcodes implemented.");
+            }
+
+            void I_ORA_ABS()
+            {
+                UInt16 addr = CPU.FetchAbsoluteAddress();
+                
+                CPU.A = (byte)(CPU.A | CPU.Read(addr));
+                CPU.SetNegative((CPU.A & (1 << 7)) != 0);
+                CPU.SetZero(CPU.A == 0);
             }
 
             void I_JMP_ABS()
@@ -635,7 +675,7 @@ namespace KAPE8bitEmulator
             void I_JMP_ABI()
             {
                 UInt16 addr = CPU.FetchAbsoluteAddress();
-                CPU.PC = (UInt16) ((CPU.Read(addr) << 8) | (CPU.Read((UInt16)(addr + 1))));
+                CPU.PC = (UInt16) ((CPU.Read(addr)) | (CPU.Read((UInt16)(addr + 1)) << 8));
             }
 
             void I_CLD_IMP()
@@ -739,9 +779,15 @@ namespace KAPE8bitEmulator
                 {
                     CPU.insideNMI = false;
                     CPU.nmiTriggered = false;
-#if DEBUG
-                    //Console.WriteLine($"Exiting NMI, returning to ${CPU.PC:X4}");
-#endif
+                    if (KAPE8bitEmulator.DebugMode)
+                        Program.consoleOut.WriteLine($"Exiting NMI, returning to ${CPU.PC:X4}");
+                }
+
+                if (CPU.insideIRQ)
+                {
+                    CPU.insideIRQ = false;
+                    if (KAPE8bitEmulator.DebugMode)
+                        Program.consoleOut.WriteLine($"Exiting IRQ, returning to ${CPU.PC:X4}");
                 }
             }
 
@@ -981,6 +1027,16 @@ namespace KAPE8bitEmulator
                 // Set cycles accordingly depending on the page boundary
                 instructionDescriptors[BMI_REL].Cycles +=
                     (oldPCh != newPCh) ? 1 : 0;
+            }
+
+            void I_PHP_IMP()
+            {
+                CPU.Push(CPU.P);
+            }
+
+            void I_PLP_IMP()
+            {
+                CPU.P = CPU.Pull();
             }
         }
     }

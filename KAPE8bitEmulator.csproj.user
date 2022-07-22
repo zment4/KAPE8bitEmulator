@@ -4,4 +4,8 @@
     <StartWorkingDirectory>D:\6502\</StartWorkingDirectory>
     <StartArguments>scatternoid.bin</StartArguments>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <StartWorkingDirectory>D:\6502</StartWorkingDirectory>
+    <StartArguments>battlesnake.bin</StartArguments>
+  </PropertyGroup>
 </Project>

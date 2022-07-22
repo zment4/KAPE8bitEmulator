@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static KAPE8bitEmulator.CPU_6502.Instructions;
+using System.IO;
 
 namespace KAPE8bitEmulator
 {
@@ -24,12 +25,18 @@ namespace KAPE8bitEmulator
         }
         List<MemoryMappedWrite> WriteMap = new List<MemoryMappedWrite>();
         Dictionary<UInt16, Func<UInt16, byte>> ReadMap = new Dictionary<UInt16, Func<UInt16, byte>>();
+        List<Func<bool>> IRQMap = new List<Func<bool>>();
 
         Instructions instructions;
 
         public CPU_6502()
         {
             instructions = new Instructions(this);
+        }
+
+        public void RegisterIRQ(Func<bool> action)
+        {
+            IRQMap.Add(action);
         }
 
         public void RegisterRead(UInt16 startAddress, UInt16 endAddress, Func<UInt16, byte> action)
@@ -66,16 +73,12 @@ namespace KAPE8bitEmulator
 
         bool nmiTriggered;
         bool insideNMI;
+        bool insideIRQ;
 
         public void TriggerNMI()
         {
             if (haltRequested)
                 return;
-
-#if DEBUG
-            if (!nmiTriggered)
-                //Console.WriteLine($"6502: NMI Triggered!");
-#endif
 
             nmiTriggered = true;
         }
@@ -87,9 +90,10 @@ namespace KAPE8bitEmulator
             var lo = Read(0xfffc);
 
             PC = (UInt16) (hi << 8 | lo);
-#if DEBUG
-            Console.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
-#endif
+
+            if (KAPE8bitEmulator.DebugMode)
+                Program.consoleOut.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
+
             resetRequested = false;
             insideNMI = false;
             nmiTriggered = false;
@@ -119,25 +123,23 @@ namespace KAPE8bitEmulator
 
         void RunCycle()
         {
-#if DEBUG
-            if (!insideNMI)
-                PrintRegisters();
-#endif
+            if (KAPE8bitEmulator.DebugMode && !insideNMI)
+                    PrintRegisters();
+
             byte instruction = FetchInstruction();
             var instr = instructions[instruction];
 
-#if DEBUG
-            if (!insideNMI)
+            if (KAPE8bitEmulator.DebugMode && !insideNMI)
                 PrintInstructionAndOpCodes(instruction, instr);
-#endif
 
-                if (instr == null)
+            if (instr == null)
             {
-                Console.WriteLine("Unhandled opcode! Freezing.");
+                Program.consoleOut.WriteLine("Unhandled opcode! Freezing.");
                 PC--;
                 PrintRegisters();
                 PrintInstructionAndOpCodes(instruction, instr);
                 PrintStack();
+                Program.consoleOut.Flush();
                 Thread.Sleep(Timeout.Infinite);
             }
 
@@ -147,59 +149,59 @@ namespace KAPE8bitEmulator
 
         private void PrintInstructionAndOpCodes(byte instruction, InstructionDescriptor instr)
         {
-            Console.Write($"${instruction:X2}\t");
+            Program.consoleOut.Write($"${instruction:X2}\t");
             if (instr == null)
             {
-                Console.WriteLine("NOT SUPPORTED");
+                Program.consoleOut.WriteLine("NOT SUPPORTED");
                 return;
             }
-            Console.Write($"{instr.Mnemonic}\t");
+            Program.consoleOut.Write($"{instr.Mnemonic}\t");
             UInt16 addr = (UInt16)((Peek((UInt16)(PC + 1)) << 8) | Peek(PC)); ;
 
             switch (instr.AddressingMode)
             {
                 case AddressingModeEnum.Absolute:
-                    Console.WriteLine($"${addr:X4}\t=${Peek(addr):X2}");
+                    Program.consoleOut.WriteLine($"${addr:X4}\t=${Peek(addr):X2}");
                     break;
                 case AddressingModeEnum.Immediate:
-                    Console.WriteLine($"#${Peek(PC):X2}");
+                    Program.consoleOut.WriteLine($"#${Peek(PC):X2}");
                     break;
                 case AddressingModeEnum.Implied:
-                    Console.WriteLine();
+                    Program.consoleOut.WriteLine();
                     break;
                 case AddressingModeEnum.Relative:
                     var rel = (sbyte)Peek(PC);
-                    Console.WriteLine($"#${rel} (${PC+rel+1:X4})");
+                    Program.consoleOut.WriteLine($"#${rel} (${PC+rel+1:X4})");
                     break;
                 case AddressingModeEnum.ZeroPage:
-                    Console.WriteLine($"${Peek(Peek(PC)):X2}");
+                    Program.consoleOut.WriteLine($"${Peek(PC):X2}\t=${Peek(Peek(PC)):X2}");
                     break;
                 case AddressingModeEnum.IndirectIndexed:
-                    Console.WriteLine($"(${Peek(PC):X2}),Y");
+                    Program.consoleOut.WriteLine($"(${Peek(PC):X2}),Y\t=${((Peek((UInt16) (Peek(PC)+1)) << 8) | Peek(Peek(PC))) + Y:X4}");
                     break;
                 case AddressingModeEnum.AbsoluteIndexedX:
                     addr += X;
-                    Console.WriteLine($"${addr:X4}");
+                    Program.consoleOut.WriteLine($"${addr:X4}");
                     break;
                 case AddressingModeEnum.Accumulator:
-                    Console.WriteLine("A");
+                    Program.consoleOut.WriteLine("A");
                     break;
                 case AddressingModeEnum.AbsoluteIndirect:
-                    Console.WriteLine($"(${addr:X4})\t=${Peek(addr):X2}{Peek((UInt16) (addr+1)):X2}");
+                    Program.consoleOut.WriteLine($"(${addr:X4})\t=${Peek(addr):X2}{Peek((UInt16) (addr+1)):X2}");
                     break;
             }
 
-            Console.WriteLine();
+            Program.consoleOut.WriteLine();
         }
 
         void PrintRegisters()
         {
-            Console.Write($"PC: ${PC:X4} ");
-            Console.Write($"A: ${A:X2} ");
-            Console.Write($"X: ${X:X2} ");
-            Console.Write($"Y: ${Y:X2} ");
-            Console.Write($"S: ${S:X2} ");
-            Console.Write($"P: {Convert.ToString(P, 2).PadLeft(8,'0')}\n\t\t");
+            Program.consoleOut.Write($"PC: ${PC:X4} ");
+            Program.consoleOut.Write($"A: ${A:X2} ");
+            Program.consoleOut.Write($"X: ${X:X2} ");
+            Program.consoleOut.Write($"Y: ${Y:X2} ");
+            Program.consoleOut.Write($"S: ${S:X2} ");
+            Program.consoleOut.Write($"P: {Convert.ToString(P, 2).PadLeft(8,'0')}\n\t\t");
         }
 
         long currentCycles = 0;
@@ -247,12 +249,11 @@ namespace KAPE8bitEmulator
                         nmiLastSecondStart = currentNMI;
                         measureSW.Restart();
                     }
+                    // Check NMI first
                     if (nmiTriggered && !insideNMI) EnterNMI();
+                    // Then check IRQ
+                    if (!insideIRQ && !insideNMI && !IsIntDisable() && IRQMap.Any(x => x())) EnterIRQ();
 
-#if DEBUG
-                    //if (!insideNMI)
-                    //    Console.ReadKey();
-#endif
                     Thread.Sleep(0);
                 }
             }) { IsBackground = true }.Start();
@@ -263,9 +264,10 @@ namespace KAPE8bitEmulator
         private void EnterNMI()
         {
             currentNMI++;
-#if DEBUG
-            Console.WriteLine($"Entering NMI at ${PC:X4}");
-#endif
+
+            if (KAPE8bitEmulator.DebugMode)
+                Program.consoleOut.WriteLine($"Entering NMI at ${PC:X4}");
+
             PushAddress(PC);
             Push(P);
 
@@ -273,13 +275,32 @@ namespace KAPE8bitEmulator
             var lo = Read(0xfffa);
 
             PC = (UInt16)(hi << 8 | lo);
-#if DEBUG
-            Console.WriteLine($"CPU reading NMI vector, got: ${PC:X4}");
-#endif
 
-            SetIntDisable();
+            if (KAPE8bitEmulator.DebugMode)
+                Program.consoleOut.WriteLine($"CPU reading NMI vector, got: ${PC:X4}");
 
             insideNMI = true;
+            currentCycles += 7;
+        }
+
+        private void EnterIRQ()
+        {
+            if (KAPE8bitEmulator.DebugMode)
+                Program.consoleOut.WriteLine($"Entering IRQ at ${PC:X4}");
+
+            PushAddress(PC);
+            Push(P);
+
+            var hi = Read(0xffff);
+            var lo = Read(0xfffe);
+
+            PC = (UInt16)(hi << 8 | lo);
+
+            if (KAPE8bitEmulator.DebugMode)
+                Program.consoleOut.WriteLine($"CPU reading IRQ vector, got: ${PC:X4}");
+
+            insideIRQ = true;
+            currentCycles += 7;
         }
 
         void Push(byte b)
@@ -312,12 +333,12 @@ namespace KAPE8bitEmulator
 
         private void PrintStack()
         {
-            Console.WriteLine("Stack");
+            Program.consoleOut.WriteLine("Stack");
             for (int i = 0, offs = 0x0100; i < 16; i++)
             {
                 for (int k = 0; k < 16; k++, offs++)
-                    Console.Write($"{Read((UInt16) offs):X2}{(S == i ? '*' : ' ')}");
-                Console.WriteLine("");
+                    Program.consoleOut.Write($"{Read((UInt16) offs):X2}{(S == i ? '*' : ' ')}");
+                Program.consoleOut.WriteLine("");
             }
         }
 

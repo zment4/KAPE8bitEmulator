@@ -157,8 +157,8 @@ namespace KAPE8bitEmulator
                         terminalState = TerminalStateEnum.ColorBinary;
                         break;
                     default:
-                        Console.WriteLine($"Unknown TERM command 0x{cmdByte:X2}");
-                        Console.WriteLine($"FREEZING!");
+                        Program.consoleOut.WriteLine($"Unknown TERM command 0x{cmdByte:X2}");
+                        Program.consoleOut.WriteLine($"FREEZING!");
                         Thread.Sleep(Timeout.Infinite);
                         break;
                 }
