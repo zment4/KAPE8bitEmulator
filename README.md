@@ -8,4 +8,4 @@ KAPE8bit is a homebrew 6502 computer I've been making on and off since summer 20
 
 Currently, everything is a mess so don't expect anything.
 
-
+The latest succesfully built development commit can be downloaded [here](../../releases/download/development/KAPE8bitEmulator.zip)
