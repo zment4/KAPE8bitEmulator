@@ -182,10 +182,14 @@ namespace KAPE8bitEmulator
             if (p1_left) encodedInput |= 0b10000000;
             if (p1_right) encodedInput |= 0b00100000;
 
+            if (p2_up) encodedInput |= 0b00000001;
+            if (p2_down) encodedInput |= 0b00000100;
+            if (p2_left) encodedInput |= 0b00001000;
+            if (p2_right) encodedInput |= 0b00000010;
+
             if (encodedInput != lastEncodedInput)
             {
                 pullInputIRQLow = true;
-//                Console.WriteLine($"{Convert.ToString(encodedInput, 2).PadLeft(8, '0')}");
             }
         }
 
