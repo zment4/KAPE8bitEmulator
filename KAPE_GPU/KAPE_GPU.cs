@@ -63,8 +63,6 @@ namespace KAPE8bitEmulator
 
         public override void Draw(GameTime gameTime)
         {
-            CurrentMode.Draw();
-
             var xScale = (float)Game.Window.ClientBounds.Width / _outputTexture.Width;
             var yScale = (float)Game.Window.ClientBounds.Height / _outputTexture.Height;
 
@@ -111,7 +109,10 @@ namespace KAPE8bitEmulator
                 Matrix.CreateScale(intXScale, intYScale, 1f)
             );
 
-            _outputTexture.SetData(_frameBuffer);
+            lock (lockFrameBuffer)
+            {
+                _outputTexture.SetData(_frameBuffer);
+            }
             _spriteBatch.Draw(_outputTexture, new Vector2(intXPos, intYPos), null, Color.White, 0f, new Vector2(0.5f * _outputTexture.Width, 0.5f * _outputTexture.Height), Vector2.One, SpriteEffects.None, 0f);
 
             _spriteBatch.End();
@@ -153,6 +154,7 @@ namespace KAPE8bitEmulator
         }
 
         readonly object lockCMDQ = new object();
+        readonly object lockFrameBuffer = new object();
 
         void Write(UInt16 address, byte val)
         {
@@ -205,6 +207,9 @@ namespace KAPE8bitEmulator
                     // Introduce a waitstate to simulate screen updates and command handling waitstates
                     // TODO: make it more conformant with real elapsed time instead
                     Thread.Sleep(40);
+
+                    lock (lockFrameBuffer)
+                        CurrentMode.Draw();
                 }
             }) { IsBackground = true }.Start();
         }
