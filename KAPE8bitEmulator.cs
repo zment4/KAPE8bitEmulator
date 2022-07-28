@@ -1,11 +1,10 @@
-﻿#define DEBUG
-
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Diagnostics;
 using System.Threading;
+using HighPrecisionTimer;
 
 namespace KAPE8bitEmulator
 {
@@ -39,6 +38,7 @@ namespace KAPE8bitEmulator
                 DebugMode = Program.Args[1] == "-debug";
         }
 
+        MultimediaTimer NMITimer = new MultimediaTimer() { Interval = 4, Resolution = 0 };
 
         /// <summary>
         /// Allows the game to perform any initialization it needs to before starting to run.
@@ -79,26 +79,25 @@ namespace KAPE8bitEmulator
 
             originalTitle = $"KAPE8bitEmulator - {fileName}";
 
-            new Thread(() =>
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            long lastNMIticks = 0;
+            long ticksPerNMI = 10000000 / NMI_FPS;
+
+            NMITimer.Elapsed += (o, e) =>
             {
-                Stopwatch sw = new Stopwatch();
-                sw.Start();
-
-                long lastNMIticks = 0;
-                long ticksPerNMI = 10000000 / NMI_FPS;
-
-                while(true)
+                var elapsedTicks = sw.ElapsedTicks;
+                var deltaTicks = elapsedTicks - lastNMIticks;
+                if (deltaTicks >= ticksPerNMI)
                 {
-                    var elapsedTicks = sw.ElapsedTicks;
-                    if (elapsedTicks - lastNMIticks > ticksPerNMI)
-                    {
-                        _KAPE_CPU.TriggerNMI();
-                        lastNMIticks = elapsedTicks;
-                    }
-                     
-                    Thread.Sleep(0);
+                    _KAPE_CPU.TriggerNMI();
+                    lastNMIticks += deltaTicks - (deltaTicks - ticksPerNMI);
                 }
-            }) { IsBackground = true }.Start();
+            };
+
+            NMITimer.Start();
+
             base.Initialize();
         }
 

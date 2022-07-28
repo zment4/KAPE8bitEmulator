@@ -24,7 +24,7 @@ namespace KAPE8bitEmulator
             public Action<UInt16, byte> Write;
         }
         List<MemoryMappedWrite> WriteMap = new List<MemoryMappedWrite>();
-        Dictionary<UInt16, Func<UInt16, byte>> ReadMap = new Dictionary<UInt16, Func<UInt16, byte>>();
+        Func<UInt16, byte>[] ReadMap = new Func<UInt16, byte>[65536];
         List<Func<bool>> IRQMap = new List<Func<bool>>();
 
         Instructions instructions;
@@ -53,10 +53,7 @@ namespace KAPE8bitEmulator
 
         byte Read(UInt16 address)
         {
-            if (ReadMap.ContainsKey(address))
-                return ReadMap[address](address);
-
-            return 0x00;
+            return ReadMap[address](address);
         }
 
         void Write(UInt16 address, byte value)
@@ -219,7 +216,6 @@ namespace KAPE8bitEmulator
             {
                 Stopwatch measureSW = new Stopwatch();
                 Stopwatch limiterSW = new Stopwatch();
-                measureSW.Start();
                 limiterSW.Start();
 
                 if (Program.Args.Length > 1 && Program.Args[1] == "-wait")
@@ -228,33 +224,36 @@ namespace KAPE8bitEmulator
                     Console.ReadKey();
                 }
 
+                var measureTimer = new Timer((o) =>
+                {
+                    CurrentCyclesPerSecond = (int)Math.Round((currentCycles - cyclesLastSecondStart) * measureSW.Elapsed.TotalSeconds);
+                    cyclesLastSecondStart = currentCycles;
+                    CurrentNMIPerSecond = (int)Math.Round((currentNMI - nmiLastSecondStart) * measureSW.Elapsed.TotalSeconds);
+                    nmiLastSecondStart = currentNMI;
+                    measureSW.Restart();
+                });
+
+                measureSW.Start();
+                measureTimer.Change(0, 1000);
+
                 while (true)
                 {
                     // Halt, stopped with Stop() and restarted with Start()
                     while (haltRequested)
                     {
                         haltAcknowledged = true;
-                        Thread.Sleep(0);
+                        Thread.Sleep(100);
                     }
 
                     RunCycle();
 
-                    while (currentCycles >= (limiterSW.Elapsed.TotalSeconds * TARGET_HZ)) Thread.Sleep(0);
+                    // sleep until we haven't been too fast
+                    while (currentCycles >= (limiterSW.Elapsed.TotalSeconds * TARGET_HZ)) Thread.Sleep(1);
 
-                    if (measureSW.ElapsedMilliseconds >= 1000)
-                    {
-                        CurrentCyclesPerSecond = (int) Math.Round((currentCycles - cyclesLastSecondStart) * measureSW.Elapsed.TotalSeconds);
-                        cyclesLastSecondStart = currentCycles;
-                        CurrentNMIPerSecond = (int)Math.Round((currentNMI - nmiLastSecondStart) * measureSW.Elapsed.TotalSeconds);
-                        nmiLastSecondStart = currentNMI;
-                        measureSW.Restart();
-                    }
                     // Check NMI first
                     if (nmiTriggered && !insideNMI) EnterNMI();
                     // Then check IRQ
                     if (!insideIRQ && !insideNMI && !IsIntDisable() && IRQMap.Any(x => x())) EnterIRQ();
-
-                    Thread.Sleep(0);
                 }
             }) { IsBackground = true }.Start();
         }
@@ -378,7 +377,7 @@ namespace KAPE8bitEmulator
         internal void Stop()
         {
             haltRequested = true;
-            while (!haltAcknowledged) Thread.Sleep(0);
+            while (!haltAcknowledged);
             haltAcknowledged = false;
 
             Thread.Sleep(10);

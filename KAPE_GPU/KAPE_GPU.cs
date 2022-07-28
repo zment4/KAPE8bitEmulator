@@ -109,10 +109,7 @@ namespace KAPE8bitEmulator
                 Matrix.CreateScale(intXScale, intYScale, 1f)
             );
 
-            lock (lockFrameBuffer)
-            {
-                _outputTexture.SetData(_frameBuffer);
-            }
+            _outputTexture.SetData(_frameBuffer);
             _spriteBatch.Draw(_outputTexture, new Vector2(intXPos, intYPos), null, Color.White, 0f, new Vector2(0.5f * _outputTexture.Width, 0.5f * _outputTexture.Height), Vector2.One, SpriteEffects.None, 0f);
 
             _spriteBatch.End();
@@ -154,7 +151,6 @@ namespace KAPE8bitEmulator
         }
 
         readonly object lockCMDQ = new object();
-        readonly object lockFrameBuffer = new object();
 
         void Write(UInt16 address, byte val)
         {
@@ -208,8 +204,7 @@ namespace KAPE8bitEmulator
                     // TODO: make it more conformant with real elapsed time instead
                     Thread.Sleep(40);
 
-                    lock (lockFrameBuffer)
-                        CurrentMode.Draw();
+                    CurrentMode.Draw();
                 }
             }) { IsBackground = true }.Start();
         }
