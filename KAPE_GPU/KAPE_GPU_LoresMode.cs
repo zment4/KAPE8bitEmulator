@@ -61,8 +61,8 @@ namespace KAPE8bitEmulator
                 var cmd = commands.Find(x => x.Command == cmdBytes[0]);
                 if (cmd == null)
                 {
-                    Program.consoleOut.WriteLine($"Unknown MODE command 0x{cmdBytes[0]:X2}");
-                    Program.consoleOut.WriteLine($"FREEZING!");
+                    Console.WriteLine($"Unknown MODE command 0x{cmdBytes[0]:X2}");
+                    Console.WriteLine($"FREEZING!");
                     Thread.Sleep(Timeout.Infinite);
                 }
 

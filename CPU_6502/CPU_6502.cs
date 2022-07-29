@@ -91,7 +91,7 @@ namespace KAPE8bitEmulator
             PC = (UInt16) (hi << 8 | lo);
 
             if (KAPE8bitEmulator.DebugMode)
-                Program.consoleOut.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
+                Console.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
 
             resetRequested = false;
             insideNMI = false;
@@ -138,7 +138,6 @@ namespace KAPE8bitEmulator
                 PrintRegisters();
                 PrintInstructionAndOpCodes(instruction, instr);
                 PrintStack();
-                Program.consoleOut.Flush();
                 Thread.Sleep(Timeout.Infinite);
             }
 
@@ -151,42 +150,42 @@ namespace KAPE8bitEmulator
             Program.consoleOut.Write($"${instruction:X2}\t");
             if (instr == null)
             {
-                Program.consoleOut.WriteLine("NOT SUPPORTED");
+                Console.WriteLine("NOT SUPPORTED");
                 return;
             }
-            Program.consoleOut.Write($"{instr.Mnemonic}\t");
+            Console.Write($"{instr.Mnemonic}\t");
             UInt16 addr = (UInt16)((Peek((UInt16)(PC + 1)) << 8) | Peek(PC)); ;
 
             switch (instr.AddressingMode)
             {
                 case AddressingModeEnum.Absolute:
-                    Program.consoleOut.WriteLine($"${addr:X4}\t=${Peek(addr):X2}");
+                    Console.WriteLine($"${addr:X4}\t=${Peek(addr):X2}");
                     break;
                 case AddressingModeEnum.Immediate:
-                    Program.consoleOut.WriteLine($"#${Peek(PC):X2}");
+                    Console.WriteLine($"#${Peek(PC):X2}");
                     break;
                 case AddressingModeEnum.Implied:
-                    Program.consoleOut.WriteLine();
+                    Console.WriteLine();
                     break;
                 case AddressingModeEnum.Relative:
                     var rel = (sbyte)Peek(PC);
-                    Program.consoleOut.WriteLine($"#${rel} (${PC+rel+1:X4})");
+                    Console.WriteLine($"#{rel} (${PC+rel+1:X4})");
                     break;
                 case AddressingModeEnum.ZeroPage:
-                    Program.consoleOut.WriteLine($"${Peek(PC):X2}\t=${Peek(Peek(PC)):X2}");
+                    Console.WriteLine($"${Peek(PC):X2}\t=${Peek(Peek(PC)):X2}");
                     break;
                 case AddressingModeEnum.IndirectIndexed:
-                    Program.consoleOut.WriteLine($"(${Peek(PC):X2}),Y\t=${((Peek((UInt16) (Peek(PC)+1)) << 8) | Peek(Peek(PC))) + Y:X4}");
+                    Console.WriteLine($"(${Peek(PC):X2}),Y\t=${((Peek((UInt16) (Peek(PC)+1)) << 8) | Peek(Peek(PC))) + Y:X4}");
                     break;
                 case AddressingModeEnum.AbsoluteIndexedX:
                     addr += X;
-                    Program.consoleOut.WriteLine($"${addr:X4}");
+                    Console.WriteLine($"${addr:X4}");
                     break;
                 case AddressingModeEnum.Accumulator:
-                    Program.consoleOut.WriteLine("A");
+                    Console.WriteLine("A");
                     break;
                 case AddressingModeEnum.AbsoluteIndirect:
-                    Program.consoleOut.WriteLine($"(${addr:X4})\t=${Peek(addr):X2}{Peek((UInt16) (addr+1)):X2}");
+                    Console.WriteLine($"(${addr:X4})\t=${Peek(addr):X2}{Peek((UInt16) (addr+1)):X2}");
                     break;
             }
 
@@ -195,12 +194,12 @@ namespace KAPE8bitEmulator
 
         void PrintRegisters()
         {
-            Program.consoleOut.Write($"PC: ${PC:X4} ");
-            Program.consoleOut.Write($"A: ${A:X2} ");
-            Program.consoleOut.Write($"X: ${X:X2} ");
-            Program.consoleOut.Write($"Y: ${Y:X2} ");
-            Program.consoleOut.Write($"S: ${S:X2} ");
-            Program.consoleOut.Write($"P: {Convert.ToString(P, 2).PadLeft(8,'0')}\n\t\t");
+            Console.Write($"PC: ${PC:X4} ");
+            Console.Write($"A: ${A:X2} ");
+            Console.Write($"X: ${X:X2} ");
+            Console.Write($"Y: ${Y:X2} ");
+            Console.Write($"S: ${S:X2} ");
+            Console.Write($"P: {Convert.ToString(P, 2).PadLeft(8,'0')}\n\t\t");
         }
 
         long currentCycles = 0;
@@ -287,7 +286,7 @@ namespace KAPE8bitEmulator
         private void EnterIRQ()
         {
             if (KAPE8bitEmulator.DebugMode)
-                Program.consoleOut.WriteLine($"Entering IRQ at ${PC:X4}");
+                Console.WriteLine($"Entering IRQ at ${PC:X4}");
 
             PushAddress(PC);
             Push(P);
@@ -298,7 +297,7 @@ namespace KAPE8bitEmulator
             PC = (UInt16)(hi << 8 | lo);
 
             if (KAPE8bitEmulator.DebugMode)
-                Program.consoleOut.WriteLine($"CPU reading IRQ vector, got: ${PC:X4}");
+                Console.WriteLine($"CPU reading IRQ vector, got: ${PC:X4}");
 
             insideIRQ = true;
             currentCycles += 7;
@@ -334,12 +333,12 @@ namespace KAPE8bitEmulator
 
         private void PrintStack()
         {
-            Program.consoleOut.WriteLine("Stack");
+            Console.WriteLine("Stack");
             for (int i = 0, offs = 0x0100; i < 16; i++)
             {
                 for (int k = 0; k < 16; k++, offs++)
-                    Program.consoleOut.Write($"{Read((UInt16) offs):X2}{(S == i ? '*' : ' ')}");
-                Program.consoleOut.WriteLine("");
+                    Console.Write($"{Read((UInt16) offs):X2}{(S == i ? '*' : ' ')}");
+                Console.WriteLine("");
             }
         }
 
