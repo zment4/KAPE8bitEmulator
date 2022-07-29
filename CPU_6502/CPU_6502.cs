@@ -72,6 +72,8 @@ namespace KAPE8bitEmulator
         bool insideNMI;
         bool insideIRQ;
 
+        public bool HideNMIMessages = true;
+
         public void TriggerNMI()
         {
             if (haltRequested)
@@ -264,8 +266,8 @@ namespace KAPE8bitEmulator
         {
             currentNMI++;
 
-            if (KAPE8bitEmulator.DebugMode)
-                Program.consoleOut.WriteLine($"Entering NMI at ${PC:X4}");
+            if (KAPE8bitEmulator.DebugMode && !HideNMIMessages)
+                Console.WriteLine($"Entering NMI at ${PC:X4}");
 
             PushAddress(PC);
             Push(P);
@@ -275,8 +277,8 @@ namespace KAPE8bitEmulator
 
             PC = (UInt16)(hi << 8 | lo);
 
-            if (KAPE8bitEmulator.DebugMode)
-                Program.consoleOut.WriteLine($"CPU reading NMI vector, got: ${PC:X4}");
+            if (KAPE8bitEmulator.DebugMode && !HideNMIMessages)
+                Console.WriteLine($"CPU reading NMI vector, got: ${PC:X4}");
 
             insideNMI = true;
             currentCycles += 7;

@@ -779,15 +779,15 @@ namespace KAPE8bitEmulator
                 {
                     CPU.insideNMI = false;
                     CPU.nmiTriggered = false;
-                    if (KAPE8bitEmulator.DebugMode)
-                        Program.consoleOut.WriteLine($"Exiting NMI, returning to ${CPU.PC:X4}");
+                    if (KAPE8bitEmulator.DebugMode && !CPU.HideNMIMessages)
+                        Console.WriteLine($"Exiting NMI, returning to ${CPU.PC:X4}");
                 }
 
                 if (CPU.insideIRQ)
                 {
                     CPU.insideIRQ = false;
                     if (KAPE8bitEmulator.DebugMode)
-                        Program.consoleOut.WriteLine($"Exiting IRQ, returning to ${CPU.PC:X4}");
+                        Console.WriteLine($"Exiting IRQ, returning to ${CPU.PC:X4}");
                 }
             }
 
