@@ -8,7 +8,6 @@ namespace KAPE8bitEmulator
     /// </summary>
     public static class Program
     {
-        public static StreamWriter consoleOut = new StreamWriter(Console.OpenStandardOutput(), System.Text.Encoding.UTF8, 8192);
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
@@ -28,8 +27,6 @@ namespace KAPE8bitEmulator
 
             using (var game = new KAPE8bitEmulator())
                 game.Run();
-
-            consoleOut.Flush();
         }
 
         public static string[] Args;

@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using HighPrecisionTimer;
+using System.Linq;
 
 namespace KAPE8bitEmulator
 {
@@ -35,7 +36,7 @@ namespace KAPE8bitEmulator
             Window.AllowUserResizing = true;
 
             if (Program.Args.Length > 1) 
-                DebugMode = Program.Args[1] == "-debug";
+                DebugMode = Program.Args.Contains("-debug");
         }
 
         MultimediaTimer NMITimer = new MultimediaTimer() { Interval = 4, Resolution = 0 };

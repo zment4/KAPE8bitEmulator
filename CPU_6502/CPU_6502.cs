@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using static KAPE8bitEmulator.CPU_6502.Instructions;
 using System.IO;
+using System.Globalization;
 
 namespace KAPE8bitEmulator
 {
@@ -32,6 +33,7 @@ namespace KAPE8bitEmulator
         public CPU_6502()
         {
             instructions = new Instructions(this);
+            InitDebugCommands();
         }
 
         public void RegisterIRQ(Func<bool> action)
@@ -120,34 +122,237 @@ namespace KAPE8bitEmulator
             return Read(addr);
         }
 
+        enum DebugState
+        {
+            Continue,
+            Step
+        }
+
+        DebugState debugState = DebugState.Step;
+
         void RunCycle()
         {
-            if (KAPE8bitEmulator.DebugMode && !insideNMI)
-                    PrintRegisters();
-
-            byte instruction = FetchInstruction();
+            byte instruction = Read(PC);
             var instr = instructions[instruction];
 
             if (KAPE8bitEmulator.DebugMode && !insideNMI)
-                PrintInstructionAndOpCodes(instruction, instr);
+            {
+                HandleDebugState(instruction, instr);
+            }
 
             if (instr == null)
             {
-                Program.consoleOut.WriteLine("Unhandled opcode! Freezing.");
-                PC--;
+                Console.WriteLine("Unhandled opcode! Freezing.");
                 PrintRegisters();
                 PrintInstructionAndOpCodes(instruction, instr);
                 PrintStack();
                 Thread.Sleep(Timeout.Infinite);
             }
 
+            PC++;
             instr.Action();
             currentCycles += instr.Cycles;
         }
 
+        private void HandleDebugState(byte instruction, InstructionDescriptor instr)
+        {
+            if (debugState == DebugState.Continue && IsBreakpoint())
+            {
+                Console.WriteLine($"Breakpoint hit at ${PC:X4}");
+                debugState = DebugState.Step;
+            }
+
+            if (debugState == DebugState.Step)
+            {
+                PrintRegisters();
+                PrintInstructionAndOpCodes(instruction, instr);
+
+                DebugPrompt();
+            }
+        }
+
+        public bool DebugCommandNext(string[] words)
+        {
+            debugState = DebugState.Step;
+            return false;
+        }
+
+        public bool DebugCommandBreakpoint(string[] words)
+        {
+            if (words.Length == 1)
+            {
+                Console.WriteLine("No breakpoint address provided.");
+                return true;
+            }
+
+            Action listBreakpoints = () =>
+            {
+                for (int i = 0; i < BreakpointAddressList.Count; i++)
+                {
+                    Console.WriteLine($"{(i+1).ToString().PadLeft(2, ' ')}: ${BreakpointAddressList[i]:X4}");
+                }
+            };
+
+            Action addBreakpoint = () =>
+            {
+                if (words[2].Length == 5 && words[2][0] == '$')
+                {
+                    UInt16 bpAddress = 0;
+                    if (UInt16.TryParse(words[2].Substring(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out bpAddress))
+                    {
+                        BreakpointAddressList.Add(bpAddress);
+                        Console.WriteLine($"Added breakpoint {BreakpointAddressList.Count} at ${bpAddress:X4}");
+                    }
+                }
+                else Console.WriteLine($"Can't add breakpoint {words[2]}");
+            };
+
+            Action removeBreakpoint = () =>
+            {
+                int bpIndex = 0;
+                if (int.TryParse(words[2], out bpIndex))
+                {
+                    bpIndex--;
+                    if (bpIndex < BreakpointAddressList.Count && bpIndex >= 0)
+                    {
+                        var bpAddress = BreakpointAddressList[bpIndex];
+                        BreakpointAddressList.RemoveAt(bpIndex);
+                        Console.WriteLine($"Removed breakpoint {bpIndex + 1}: ${bpAddress:X4}");
+                    }
+                    else Console.WriteLine($"No breakpoint {bpIndex} set.");
+                }
+                else Console.WriteLine($"Could not parse '{words[2]}' as a breakpoint ID.");
+            };
+
+            switch (words[1])
+            {
+                case "a":
+                    addBreakpoint();
+                    break;
+                case "add":
+                    addBreakpoint();
+                    break;
+                case "remove":
+                    removeBreakpoint();
+                    break;
+                case "r":
+                    removeBreakpoint();
+                    break;
+                case "list":
+                    listBreakpoints();
+                    break;
+                case "l":
+                    listBreakpoints();
+                    break;
+            }
+
+            return true;
+        }
+
+        public bool DebugCommandMemory(string[] words)
+        {
+            if (words.Length < 2)
+            {
+                Console.WriteLine("No parameters provided.");
+                Console.WriteLine("USAGE: m|memory <address> [<count>]");
+                return true;
+            }
+
+
+            UInt16 mAddress = 0;
+            if (words[1].Length != 5 ||
+                words[1][0] != '$' || 
+                !UInt16.TryParse(words[1].Substring(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out mAddress))
+            {
+                Console.WriteLine($"Invalid memory address '{words[1]}'");
+                return true;
+            }
+
+            int count = 1;
+            if (words.Length == 3 && !int.TryParse(words[2], out count))
+            {
+                Console.WriteLine($"Invalid count");
+            }
+
+            while (count > 0)
+            {
+                Console.Write($"{mAddress:X4}: ");
+
+                int curCount = 0;
+                while (curCount < 16)
+                {
+                    Console.Write($"{Read(mAddress):X2} ");
+                    mAddress++;
+                    curCount++;
+                    count--;
+                    if (count == 0)
+                        break;
+                }
+
+                Console.WriteLine();
+            }
+
+            return true;
+        }
+
+        public bool DebugCommandContinue(string[] words)
+        {
+            debugState = DebugState.Continue;
+
+            return false;
+        }
+
+        Dictionary<string, Func<string[], bool>> debugCommands = new Dictionary<string, Func<string[], bool>>();
+
+        void InitDebugCommands()
+        {
+            debugCommands = new Dictionary<string, Func<string[], bool>>()
+            {
+                { "next", DebugCommandNext },
+                { "n", DebugCommandNext },
+                { "breakpoint", DebugCommandBreakpoint },
+                { "bp", DebugCommandBreakpoint },
+                { "memory", DebugCommandMemory },
+                { "m", DebugCommandMemory },
+                { "continue", DebugCommandContinue },
+                { "c", DebugCommandContinue },
+            };
+        }
+
+        string lastDebugCommand = "";
+        void DebugPrompt()
+        {
+            var showPrompt = true;
+            while (showPrompt)
+            {
+                Console.Write("> ");
+
+                var commandline = Console.ReadLine();
+                if (String.IsNullOrEmpty(commandline))
+                {
+                    commandline = lastDebugCommand;
+                }
+
+                var words = commandline.ToLower().Split(' ');
+                if (!String.IsNullOrEmpty(words[0]))
+                {
+                    if (debugCommands.ContainsKey(words[0]))
+                        showPrompt = debugCommands[words[0]](words);
+                    else
+                        Console.WriteLine($"Unknown command {words[0]}.");
+                }
+
+                lastDebugCommand = commandline;
+            }
+        }
+
+        List<UInt16> BreakpointAddressList = new List<UInt16>();
+        private bool IsBreakpoint() => BreakpointAddressList.Contains(PC);
+
         private void PrintInstructionAndOpCodes(byte instruction, InstructionDescriptor instr)
         {
-            Program.consoleOut.Write($"${instruction:X2}\t");
+            PC++;
+            Console.Write($"${instruction:X2}\t");
             if (instr == null)
             {
                 Console.WriteLine("NOT SUPPORTED");
@@ -189,7 +394,9 @@ namespace KAPE8bitEmulator
                     break;
             }
 
-            Program.consoleOut.WriteLine();
+            Console.WriteLine();
+
+            PC--;
         }
 
         void PrintRegisters()
@@ -219,11 +426,14 @@ namespace KAPE8bitEmulator
                 Stopwatch limiterSW = new Stopwatch();
                 limiterSW.Start();
 
-                if (Program.Args.Length > 1 && Program.Args[1] == "-wait")
+                if (Program.Args.Contains("-wait"))
                 {
                     Console.WriteLine("Press any key to start emulator...");
                     Console.ReadKey();
                 }
+
+                if (KAPE8bitEmulator.DebugMode)
+                    Console.WriteLine("Ready.");
 
                 var measureTimer = new Timer((o) =>
                 {
