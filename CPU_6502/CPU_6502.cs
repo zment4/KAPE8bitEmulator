@@ -13,7 +13,7 @@ namespace KAPE8bitEmulator
 {
     public partial class CPU_6502
     {
-        const long TARGET_HZ = 4000000;
+        const long TARGET_HZ = 2000000;
         //const long TARGET_HZ = 14000;
 
         public AutoResetEvent ResetFinished;
@@ -95,7 +95,6 @@ namespace KAPE8bitEmulator
             if (KAPE8bitEmulator.DebugMode)
                 Console.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
 
-            resetRequested = false;
             insideNMI = false;
             nmiTriggered = false;
 
@@ -103,8 +102,6 @@ namespace KAPE8bitEmulator
             P = 0b00100000;
             S = 0xff;
         }
-
-        public void RequestReset() => resetRequested = true;
 
         byte FetchInstruction()
         {
@@ -146,7 +143,8 @@ namespace KAPE8bitEmulator
                 PrintRegisters();
                 PrintInstructionAndOpCodes(instruction, instr);
                 PrintStack();
-                Thread.Sleep(Timeout.Infinite);
+                //Thread.Sleep(Timeout.Infinite);
+                Task.Delay(Timeout.Infinite).Wait();
             }
 
             PC++;
@@ -279,7 +277,7 @@ namespace KAPE8bitEmulator
                 Console.Write($"{mAddress:X4}: ");
 
                 int curCount = 0;
-                while (curCount < 16)
+                while (curCount < 32)
                 {
                     Console.Write($"{Read(mAddress):X2} ");
                     mAddress++;
@@ -302,6 +300,17 @@ namespace KAPE8bitEmulator
             return false;
         }
 
+        public bool DebugCommandHelp(string[] words)
+        {
+            Console.WriteLine("Available commands:");
+            foreach(var debugCommand in debugCommands)
+            {
+                Console.WriteLine($"\t{debugCommand.Key}");
+            }
+
+            return true;
+        }
+
         Dictionary<string, Func<string[], bool>> debugCommands = new Dictionary<string, Func<string[], bool>>();
 
         void InitDebugCommands()
@@ -316,6 +325,8 @@ namespace KAPE8bitEmulator
                 { "m", DebugCommandMemory },
                 { "continue", DebugCommandContinue },
                 { "c", DebugCommandContinue },
+                { "help", DebugCommandHelp },
+                { "h", DebugCommandHelp }
             };
         }
 
@@ -416,11 +427,10 @@ namespace KAPE8bitEmulator
         long cyclesLastSecondStart = 0;
         long nmiLastSecondStart = 0;
 
-        bool resetRequested = false;
-
         public void EnterCycleLoop()
         {
-            new Thread(() =>
+            new Task(() =>
+            //new Thread(() =>
             {
                 Stopwatch measureSW = new Stopwatch();
                 Stopwatch limiterSW = new Stopwatch();
@@ -453,20 +463,27 @@ namespace KAPE8bitEmulator
                     while (haltRequested)
                     {
                         haltAcknowledged = true;
-                        Thread.Sleep(100);
+                        //Thread.Sleep(100);
+                        Task.Delay(100).Wait();
                     }
 
                     RunCycle();
 
                     // sleep until we haven't been too fast
-                    while (currentCycles >= (limiterSW.Elapsed.TotalSeconds * TARGET_HZ)) Thread.Sleep(1);
+                    while (currentCycles >= (limiterSW.Elapsed.TotalSeconds * TARGET_HZ))
+                    {
+                        Task.Delay(1).Wait();
+                        //Thread.Sleep(1);
+                    }
 
                     // Check NMI first
                     if (nmiTriggered && !insideNMI) EnterNMI();
                     // Then check IRQ
                     if (!insideIRQ && !insideNMI && !IsIntDisable() && IRQMap.Any(x => x())) EnterIRQ();
                 }
-            }) { IsBackground = true }.Start();
+            })
+            //}) { IsBackground = true }
+            .Start();
         }
 
         public Mutex Halt = new Mutex();
@@ -585,13 +602,16 @@ namespace KAPE8bitEmulator
         bool haltRequested = false;
         bool haltAcknowledged = false;
 
+        public bool IsRunning => !haltRequested;
+
         internal void Stop()
         {
             haltRequested = true;
             while (!haltAcknowledged);
             haltAcknowledged = false;
 
-            Thread.Sleep(10);
+            Task.Delay(10).Wait();
+            //Thread.Sleep(10);
         }
 
         internal void Start()

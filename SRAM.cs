@@ -37,5 +37,25 @@ namespace KAPE8bitEmulator
                 Console.WriteLine($"Filled ram with {fileStream.Name}, {fileStream.Position} bytes.");
             }
         }
+
+        internal void FillFromEmbeddedBinary()
+        {
+            using (var fileStream = new FileStream(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                fileStream.Seek(-0x10000, SeekOrigin.End);
+                using (var binaryReader = new BinaryReader(fileStream))
+                {
+                    binaryReader.Read(sram, 0, 0x10000);
+
+                    Console.WriteLine($"Filled ram with {0x10000} bytes from embedded bin.");
+                    Console.WriteLine($"First byte: {sram[0]:X2}");
+                }
+            }
+        }
+
+        public byte[] GetRamCopy()
+        {
+            return (byte[])sram.Clone();
+        }
     }
 }
