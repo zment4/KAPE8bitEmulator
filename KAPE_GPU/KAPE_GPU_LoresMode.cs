@@ -63,7 +63,8 @@ namespace KAPE8bitEmulator
                 {
                     Console.WriteLine($"Unknown MODE command 0x{cmdBytes[0]:X2}");
                     Console.WriteLine($"FREEZING!");
-                    Thread.Sleep(Timeout.Infinite);
+                    Task.Delay(Timeout.Infinite).Wait();
+                    //Thread.Sleep(Timeout.Infinite);
                 }
 
                 cmd.Action(cmdBytes);

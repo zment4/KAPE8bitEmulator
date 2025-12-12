@@ -55,6 +55,8 @@ namespace KAPE8bitEmulator
             public const byte ORA_ABS = 0x0D;
             public const byte PHP_IMP = 0x08;
             public const byte PLP_IMP = 0x28;
+            public const byte EOR_ABS = 0x4D;
+            public const byte EOR_IMM = 0x49;
 
             public enum AddressingModeEnum
             {
@@ -482,6 +484,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.ZeroPage,
                 };
 
+                instructionDescriptors[EOR_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = EOR_ABS,
+                    Action = I_EOR_ABS,
+                    Cycles = 3,
+                    Mnemonic = "EOR",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
                 instructionDescriptors[LSR_ACC] = new InstructionDescriptor()
                 {
                     Instruction = LSR_ACC,
@@ -651,6 +662,15 @@ namespace KAPE8bitEmulator
                     Cycles = 4,
                     Mnemonic = "PLP",
                     AddressingMode = AddressingModeEnum.Implied,
+                };
+
+                instructionDescriptors[EOR_IMM] = new InstructionDescriptor()
+                {
+                    Instruction = EOR_IMM,
+                    Action = I_EOR_IMM,
+                    Cycles = 2,
+                    Mnemonic = "EOR",
+                    AddressingMode = AddressingModeEnum.Immediate,
                 };
 
                 var inst_count = instructionDescriptors.Count(x => x != null);
@@ -921,6 +941,20 @@ namespace KAPE8bitEmulator
             void I_EOR_ZPG()
             {
                 CPU.A = (byte)(CPU.A ^ CPU.Read(CPU.FetchOperand()));
+                CPU.SetZero(CPU.A == 0);
+                CPU.SetNegative((CPU.A & (1 << 7)) != 0);
+            }
+
+            void I_EOR_ABS()
+            {
+                CPU.A = (byte)(CPU.A ^ CPU.Read(CPU.FetchAbsoluteAddress()));
+                CPU.SetZero(CPU.A == 0);
+                CPU.SetNegative((CPU.A & (1 << 7)) != 0);
+            }
+
+            void I_EOR_IMM()
+            {
+                CPU.A = (byte)(CPU.A ^ CPU.FetchOperand());
                 CPU.SetZero(CPU.A == 0);
                 CPU.SetNegative((CPU.A & (1 << 7)) != 0);
             }

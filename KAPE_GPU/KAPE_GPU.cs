@@ -11,9 +11,11 @@ namespace KAPE8bitEmulator
 {
     public partial class KAPE_GPU : DrawableGameComponent
     {
-        const int FB_BORDER = 8;
+        const int FB_BORDER = 0;
         const int FB_WIDTH = 256;
         const int FB_HEIGHT = 192;
+        const int GPU_FPS = 40;
+        const int TICKS_PER_FRAME = 10_000_000 / GPU_FPS;
 
         IKAPE_GPU_Mode CurrentMode;
         List<IKAPE_GPU_Mode> gpuModes = new List<IKAPE_GPU_Mode>();
@@ -63,6 +65,8 @@ namespace KAPE8bitEmulator
 
         public override void Draw(GameTime gameTime)
         {
+            _outputTexture.SetData(_frameBuffer);
+
             var xScale = (float)Game.Window.ClientBounds.Width / _outputTexture.Width;
             var yScale = (float)Game.Window.ClientBounds.Height / _outputTexture.Height;
 
@@ -109,10 +113,10 @@ namespace KAPE8bitEmulator
                 Matrix.CreateScale(intXScale, intYScale, 1f)
             );
 
-            _outputTexture.SetData(_frameBuffer);
             _spriteBatch.Draw(_outputTexture, new Vector2(intXPos, intYPos), null, Color.White, 0f, new Vector2(0.5f * _outputTexture.Width, 0.5f * _outputTexture.Height), Vector2.One, SpriteEffects.None, 0f);
 
             _spriteBatch.End();
+
             GraphicsDevice.SetRenderTarget(null);
 
             _spriteBatch.Begin(
@@ -125,7 +129,6 @@ namespace KAPE8bitEmulator
                 Matrix.CreateScale(xScale / intXScale, yScale / intYScale, 1f)
             );
 
-            _outputTexture.SetData(_frameBuffer);
             _spriteBatch.Draw(_integerScaledRenderTarget, new Vector2(xPos, yPos), null, Color.White, 0f, new Vector2(0.5f * _integerScaledRenderTarget.Width, 0.5f * _integerScaledRenderTarget.Height), Vector2.One, SpriteEffects.None, 0f);
 
             _spriteBatch.End();
@@ -167,21 +170,25 @@ namespace KAPE8bitEmulator
 
         public void EnterCMDQThread()
         {
-            new Thread(() =>
+            //new Thread(() => 
+            new Task(() =>
             {
                 while (true)
                 {
                     if (resetRequested)
                     {
                         Reset();
+                        ResetFinished.WaitOne();
                     }
 
-                    CMDQNotEmpty.WaitOne();
-                    while (CMDQ.Count > 0)
+                    long frameStartTime = DateTime.Now.Ticks;
+
+                    //CMDQNotEmpty.WaitOne();
+                    lock (lockCMDQ)
                     {
-                        byte cmdByte = 0;
-                        lock (lockCMDQ)
+                        while (CMDQ.Count > 0)
                         {
+                            byte cmdByte = 0;
                             if (CMDQ.Count > 2048)
                             {
                                 Console.WriteLine("CMDQ Buffer OVERFLOW! Discarding all over 2K");
@@ -190,23 +197,27 @@ namespace KAPE8bitEmulator
                             }
 
                             cmdByte = CMDQ.Dequeue();
-                        }
 
-                        HandleCMDByte(cmdByte);
-
-                        if (resetRequested)
-                        {
-                            Reset();
-                            ResetFinished.WaitOne();
+                            HandleCMDByte(cmdByte);
                         }
                     }
                     // Introduce a waitstate to simulate screen updates and command handling waitstates
                     // TODO: make it more conformant with real elapsed time instead
-                    Thread.Sleep(40);
 
                     CurrentMode.Draw();
+
+                    //long frameCurrentTime = DateTime.Now.Ticks;
+                    //long deltaFrameTime = TICKS_PER_FRAME - (frameStartTime - frameCurrentTime);
+
+                    //if (deltaFrameTime > 0)
+                    //{
+                    //    //Thread.Sleep(10);
+                    //    Task.Delay((int)(deltaFrameTime / 10_000)).Wait();
+                    //}
                 }
-            }) { IsBackground = true }.Start();
+            })
+            //}) { IsBackground = true }
+            .Start();
         }
 
         byte[] cmdBuffer = new byte[34];
@@ -300,7 +311,8 @@ namespace KAPE8bitEmulator
                 default:
                     Console.WriteLine($"\nUnknown GPU Command: 0x{cmdByte:X2}");
                     Console.WriteLine($"FREEZING GPU");
-                    Thread.Sleep(Timeout.Infinite);
+                    Task.Delay(Timeout.Infinite).Wait();
+                    //Thread.Sleep(Timeout.Infinite);
                     currentIndex = 0;
                     break;
             }

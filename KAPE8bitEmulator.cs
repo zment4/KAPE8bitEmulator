@@ -25,6 +25,9 @@ namespace KAPE8bitEmulator
         CPU_6502 _KAPE_CPU;
         SRAM64k _SRAM64K;
 
+        GamePadState GamePadStatePlayer1;
+        GamePadState GamePadStatePlayer2;
+
         string originalTitle;
         public KAPE8bitEmulator()
         {
@@ -32,6 +35,7 @@ namespace KAPE8bitEmulator
             _graphics.HardwareModeSwitch = false;
 
             Content.RootDirectory = "Content";
+            IsMouseVisible = true;
 
             Window.AllowUserResizing = true;
 
@@ -49,14 +53,21 @@ namespace KAPE8bitEmulator
         /// </summary>
         protected override void Initialize()
         {
-            string fileName = Program.Args[0];
-
+            string fileName = Program.FIXED_NAME;
 
             _KAPE_GPU = new KAPE_GPU(this);
             Components.Add(_KAPE_GPU);
 
             _SRAM64K = new SRAM64k();
-            _SRAM64K.FillRam(fileName);
+            if (Program.HasEmbeddedBinary)
+            {
+                _SRAM64K.FillFromEmbeddedBinary();
+            }
+            else
+            {
+                fileName = Program.Args[0];
+                _SRAM64K.FillRam(fileName);
+            }
 
             _KAPE_CPU = new CPU_6502();
 
@@ -128,7 +139,7 @@ namespace KAPE8bitEmulator
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            if (PressedThisFrame(Keys.F4))
+            if (PressedThisFrame(Keys.F4) || PressedThisFrame(Keys.F11))
             {
                 if (!_graphics.IsFullScreen)
                 {
@@ -155,16 +166,18 @@ namespace KAPE8bitEmulator
                 _KAPE_CPU.Reset();
                 _KAPE_CPU.Start();
             }
+            GamePadStatePlayer1 = GamePad.GetState(0);
+            GamePadStatePlayer2 = GamePad.GetState(1);
 
-            bool p1_up = currentKeyState.IsKeyDown(Keys.W);
-            bool p1_down = currentKeyState.IsKeyDown(Keys.S);
-            bool p1_left = currentKeyState.IsKeyDown(Keys.A);
-            bool p1_right = currentKeyState.IsKeyDown(Keys.D);
+            bool p1_up = currentKeyState.IsKeyDown(Keys.W) | (GamePadStatePlayer1.Buttons.Y == ButtonState.Pressed);
+            bool p1_down = currentKeyState.IsKeyDown(Keys.S) | (GamePadStatePlayer1.Buttons.A == ButtonState.Pressed);
+            bool p1_left = currentKeyState.IsKeyDown(Keys.A) | (GamePadStatePlayer1.Buttons.X == ButtonState.Pressed);
+            bool p1_right = currentKeyState.IsKeyDown(Keys.D) | (GamePadStatePlayer1.Buttons.B == ButtonState.Pressed);
 
-            bool p2_up = currentKeyState.IsKeyDown(Keys.Up);
-            bool p2_down = currentKeyState.IsKeyDown(Keys.Down);
-            bool p2_left = currentKeyState.IsKeyDown(Keys.Left);
-            bool p2_right = currentKeyState.IsKeyDown(Keys.Right);
+            bool p2_up = currentKeyState.IsKeyDown(Keys.Up) | (GamePadStatePlayer2.Buttons.Y == ButtonState.Pressed);
+            bool p2_down = currentKeyState.IsKeyDown(Keys.Down) | (GamePadStatePlayer2.Buttons.A == ButtonState.Pressed);
+            bool p2_left = currentKeyState.IsKeyDown(Keys.Left) | (GamePadStatePlayer2.Buttons.X == ButtonState.Pressed);
+            bool p2_right = currentKeyState.IsKeyDown(Keys.Right) | (GamePadStatePlayer2.Buttons.B == ButtonState.Pressed);
 
             EncodeInputForIRQ(p1_up, p1_down, p1_left, p1_right, p2_up, p2_down, p2_left, p2_right);
 
@@ -177,6 +190,7 @@ namespace KAPE8bitEmulator
         {
             lastEncodedInput = encodedInput;
             encodedInput = 0;
+
             if (p1_up) encodedInput |= 0b00010000;
             if (p1_down) encodedInput |= 0b01000000;
             if (p1_left) encodedInput |= 0b10000000;
@@ -189,6 +203,7 @@ namespace KAPE8bitEmulator
 
             if (encodedInput != lastEncodedInput)
             {
+//                Console.WriteLine($"{Convert.ToString(encodedInput, 2).PadLeft(8, '0')}");
                 pullInputIRQLow = true;
             }
         }

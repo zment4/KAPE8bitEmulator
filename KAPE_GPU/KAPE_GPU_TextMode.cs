@@ -43,8 +43,23 @@ namespace KAPE8bitEmulator
                     {
                         Command = KAPE_GPU_CMD_FIFO.CF_CMD_SET_INDEX,
                         Action = CMD_SetIndex,
-                    }
+                    },
+                    new CommandDescriptor()
+                    {
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_TERMINAL,
+                        Action = CMD_TerminalMode,
+                    },
+                    new CommandDescriptor()
+                    {
+                        Command = KAPE_GPU_CMD_FIFO.CF_CMD_FLUSH_FRAME,
+                        Action = x => { },
+                    },
                 });
+            }
+
+            void CMD_TerminalMode(byte[] cmdBytes)
+            {
+                _isTerminal = true;
             }
 
             void CMD_SendCharacter(byte[] cmdBytes)
@@ -115,8 +130,11 @@ namespace KAPE8bitEmulator
             {
                 Normal,
                 Escape,
-                ColorBinary
+                ColorBinary,
+                Color
             }
+
+            int terminalFifoStateCount = 0;
 
             TerminalStateEnum terminalState = TerminalStateEnum.Normal;
 
@@ -132,6 +150,9 @@ namespace KAPE8bitEmulator
                         break;
                     case TerminalStateEnum.ColorBinary:
                         TerminalState_ColorBinary(cmdByte);
+                        break;
+                    case TerminalStateEnum.Color:
+                        TerminalState_Color(cmdByte);
                         break;
                 }
             }
@@ -156,10 +177,14 @@ namespace KAPE8bitEmulator
                     case KAPE_GPU_CMD_FIFO.CF_TERM_COLOR_BINARY:
                         terminalState = TerminalStateEnum.ColorBinary;
                         break;
+                    case KAPE_GPU_CMD_FIFO.CF_TERM_COLOR:
+                        terminalState = TerminalStateEnum.Color;
+                        break;
                     default:
                         Console.WriteLine($"Unknown TERM command 0x{cmdByte:X2}");
                         Console.WriteLine($"FREEZING!");
-                        Thread.Sleep(Timeout.Infinite);
+                        Task.Delay(Timeout.Infinite).Wait();
+                        //Thread.Sleep(Timeout.Infinite);
                         break;
                 }
             }
@@ -172,6 +197,39 @@ namespace KAPE8bitEmulator
                 terminalState = TerminalStateEnum.Normal;
             }
 
+            
+            private void TerminalState_Color(byte cmdByte)
+            {
+                if (terminalFifoStateCount == 0 || terminalFifoStateCount == 1)
+                {
+                    terminalFifoStateCount++;
+
+                    if ((cmdByte >= '0' && cmdByte <= '9') ||
+                        (cmdByte >= 'A' && cmdByte <= 'F') ||
+                        (cmdByte >= 'a' && cmdByte <= 'f'))
+                    {
+                        if (cmdByte >= 'a') cmdByte -= ('a' - 10);
+                        if (cmdByte >= 'A') cmdByte -= ('A' - 10);
+                        if (cmdByte >= '0') cmdByte -= (byte) '0';
+
+                        if (terminalFifoStateCount == 0)
+                        {
+                            currentFGColor = cmdByte;
+                        }
+                        if (terminalFifoStateCount == 1)
+                        {
+                            currentBGColor = cmdByte;
+                        }
+                    }
+                }
+
+                if (terminalFifoStateCount == 2)
+                {
+                    terminalFifoStateCount = 0;
+
+                    terminalState = TerminalStateEnum.Normal;
+                }
+            }
             const int CHAR_SPACE        = 0x20;
             const int CHAR_UNDERSCORE   = 0x5F;
 
