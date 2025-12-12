@@ -62,6 +62,14 @@ namespace KAPE8bitEmulator
 
         private static void RunHeadless()
         {
+            Console.WriteLine("KAPE8bitEmulator v1.0 - Running in headless mode");
+            Console.WriteLine($"Timeout: {HeadlessTimeoutMs}ms");
+            if (!string.IsNullOrEmpty(HeadlessDumpPath))
+            {
+                Console.WriteLine($"Memory dump output: {HeadlessDumpPath}");
+            }
+            Console.WriteLine();
+            
             string fileName = FIXED_NAME;
             if (!HasEmbeddedBinary && Args.Length > 0)
             {
@@ -85,10 +93,12 @@ namespace KAPE8bitEmulator
             var sram = new SRAM64k();
             if (HasEmbeddedBinary)
             {
+                Console.WriteLine("[Headless] Loading embedded binary");
                 sram.FillFromEmbeddedBinary();
             }
             else
             {
+                Console.WriteLine($"[Headless] Loading binary: {fileName}");
                 sram.FillRam(fileName);
             }
 
@@ -99,6 +109,7 @@ namespace KAPE8bitEmulator
             var gpuProxy = new HeadlessGPUProxy();
             gpuProxy.RegisterWrite(cpu);
 
+            Console.WriteLine("[Headless] Starting CPU execution...");
             cpu.Reset();
             cpu.Start();
 
