@@ -40,7 +40,7 @@ namespace KAPE8bitEmulator
             Window.AllowUserResizing = true;
 
             if (Program.Args.Length > 1) 
-                DebugMode = Program.Args.Contains("-debug");
+                DebugMode = Program.Args.Contains("--debug");
         }
 
         MultimediaTimer NMITimer = new MultimediaTimer() { Interval = 4, Resolution = 0 };
@@ -53,7 +53,7 @@ namespace KAPE8bitEmulator
         /// </summary>
         protected override void Initialize()
         {
-            string fileName = Program.FIXED_NAME;
+            string fileName = Program.FileName;
 
             _KAPE_GPU = new KAPE_GPU(this);
             Components.Add(_KAPE_GPU);

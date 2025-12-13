@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Data;
 using System.IO;
 using System.Threading;
+using Microsoft.VisualBasic;
 
 namespace KAPE8bitEmulator
 {
@@ -15,6 +17,7 @@ namespace KAPE8bitEmulator
         public static bool IsHeadless = false;
         public static int HeadlessTimeoutMs = 5000;
         public static string HeadlessDumpPath = null;
+        public static string FileName = "";
 
         /// <summary>
         /// The main entry point for the application.
@@ -49,45 +52,52 @@ namespace KAPE8bitEmulator
                 }
             }
 
+            // Parse binary filename argument
+            if (!HasEmbeddedBinary && Args.Length > 0)
+            {
+                // Find the binary file argument (usually after --run or first non-flag arg)
+                for (int i = 0; i < Args.Length; i++)
+                {
+                    Console.WriteLine($"Arg {i}: {Args[i]}");
+
+                    if (Args[i] == "--run" && i + 1 < Args.Length)
+                    {
+                        FileName = Args[i + 1];
+                        break;
+                    }
+
+                    if (!Args[i].StartsWith("--") && i > 0 && !Args[i - 1].StartsWith("--"))
+                    {
+                        FileName = Args[i];
+                        break;
+                    }
+                }
+            }            
+
             if (IsHeadless)
             {
                 RunHeadless();
+                // Ensure process terminates cleanly after headless run
+                Environment.Exit(0);
             }
             else
             {
                 using (var game = new KAPE8bitEmulator())
                     game.Run();
+                // Ensure process terminates cleanly after normal run
+                Environment.Exit(0);
             }
         }
 
         private static void RunHeadless()
         {
-            Console.WriteLine("KAPE8bitEmulator v1.0 - Running in headless mode");
+            Console.WriteLine("Running in headless mode");
             Console.WriteLine($"Timeout: {HeadlessTimeoutMs}ms");
             if (!string.IsNullOrEmpty(HeadlessDumpPath))
             {
                 Console.WriteLine($"Memory dump output: {HeadlessDumpPath}");
             }
             Console.WriteLine();
-            
-            string fileName = FIXED_NAME;
-            if (!HasEmbeddedBinary && Args.Length > 0)
-            {
-                // Find the binary file argument (usually after --run or first non-flag arg)
-                for (int i = 0; i < Args.Length; i++)
-                {
-                    if (Args[i] == "--run" && i + 1 < Args.Length)
-                    {
-                        fileName = Args[i + 1];
-                        break;
-                    }
-                    else if (!Args[i].StartsWith("--") && i > 0 && !Args[i - 1].StartsWith("--"))
-                    {
-                        fileName = Args[i];
-                        break;
-                    }
-                }
-            }
 
             // Initialize emulator components
             var sram = new SRAM64k();
@@ -98,8 +108,8 @@ namespace KAPE8bitEmulator
             }
             else
             {
-                Console.WriteLine($"[Headless] Loading binary: {fileName}");
-                sram.FillRam(fileName);
+                Console.WriteLine($"[Headless] Loading binary: {FileName}");
+                sram.FillRam(FileName);
             }
 
             var cpu = new CPU_6502();
@@ -112,50 +122,48 @@ namespace KAPE8bitEmulator
             Console.WriteLine("[Headless] Starting CPU execution...");
             cpu.Reset();
             cpu.Start();
-
+            cpu.EnterCycleLoop();
+            
             // Run for timeout duration or until CPU halts
             long startTick = DateTime.UtcNow.Ticks;
             long timeoutTicks = (long)HeadlessTimeoutMs * 10000; // Convert ms to 100ns ticks
 
-            try
+            while (true)
             {
-                while (true)
+                long elapsed = DateTime.UtcNow.Ticks - startTick;
+                if (elapsed >= timeoutTicks)
                 {
-                    long elapsed = DateTime.UtcNow.Ticks - startTick;
-                    if (elapsed >= timeoutTicks)
-                    {
-                        Console.WriteLine($"[Headless] Timeout after {HeadlessTimeoutMs}ms");
-                        break;
-                    }
+                    Console.WriteLine($"[Headless] Timeout after {HeadlessTimeoutMs}ms");
+                    break;
+                }
 
-                    if (!cpu.IsRunning)
-                    {
-                        Console.WriteLine("[Headless] CPU halted");
-                        break;
-                    }
+                if (!cpu.IsRunning)
+                {
+                    Console.WriteLine("[Headless] CPU halted");
+                    break;
+                }
 
-                    Thread.Sleep(10); // Small sleep to prevent busy-loop
+                Thread.Sleep(100); // Small sleep to prevent busy-loop
+            }
+            Console.WriteLine("[Headless] Stopping CPU...");
+            cpu.Stop();
+
+            // Dump memory if requested
+            if (!string.IsNullOrEmpty(HeadlessDumpPath))
+            {
+                try
+                {
+                    var ram = sram.GetRamCopy();
+                    File.WriteAllBytes(HeadlessDumpPath, ram);
+                    Console.WriteLine($"[Headless] Memory dump written to {HeadlessDumpPath}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Headless] Failed to write memory dump: {ex.Message}");
                 }
             }
-            finally
-            {
-                cpu.Stop();
-
-                // Dump memory if requested
-                if (!string.IsNullOrEmpty(HeadlessDumpPath))
-                {
-                    try
-                    {
-                        var ram = sram.GetRamCopy();
-                        File.WriteAllBytes(HeadlessDumpPath, ram);
-                        Console.WriteLine($"[Headless] Memory dump written to {HeadlessDumpPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Headless] Failed to write memory dump: {ex.Message}");
-                    }
-                }
-            }
+            
+            Console.WriteLine("[Headless] Exiting...");            
         }
 
         /// <summary>

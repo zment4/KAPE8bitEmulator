@@ -235,6 +235,14 @@ namespace KAPE8bitEmulator
 
             void HandleInputCharacter(byte b)
             {
+                if (b == '\n')
+                {
+                    cursorX = 0;
+                    cursorY++;
+                    // Terminal scroll not implemented yet
+                    if (cursorY >= TEXT_HEIGHT)
+                        cursorY = 0;
+                }
                 textBuffer[cursorX, cursorY] = b;
                 fgColorBuffer[cursorX, cursorY] = currentFGColor;
                 bgColorBuffer[cursorX, cursorY] = currentBGColor;
@@ -244,6 +252,7 @@ namespace KAPE8bitEmulator
                 {
                     cursorX = 0;
                     cursorY++;
+                    // Terminal scroll not implemented yet
                     if (cursorY >= TEXT_HEIGHT)
                         cursorY = 0;
                 }

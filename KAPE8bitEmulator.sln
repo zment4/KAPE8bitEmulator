@@ -5,8 +5,6 @@ VisualStudioVersion = 17.1.32228.430
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KAPE8bitEmulator", "KAPE8bitEmulator.csproj", "{0C9B03FE-75F9-4A2D-BB28-8AFA89A52C75}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KAPE8bitEmulator_DirectX", "..\KAPE8bitEmulator_DirectX\KAPE8bitEmulator_DirectX.csproj", "{C041B73B-A2AC-4498-B7BA-55F9D2812068}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
