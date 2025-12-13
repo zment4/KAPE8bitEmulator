@@ -24,6 +24,7 @@ namespace KAPE8bitEmulator
         KAPE_GPU _KAPE_GPU;
         CPU_6502 _KAPE_CPU;
         SRAM64k _SRAM64K;
+        KeyboardDevice _keyboardDevice;
 
         GamePadState GamePadStatePlayer1;
         GamePadState GamePadStatePlayer2;
@@ -65,11 +66,20 @@ namespace KAPE8bitEmulator
             }
             else
             {
-                fileName = Program.Args[0];
+                // Use the parsed filename from Program; do not fall back to Args[0]
+                if (string.IsNullOrEmpty(Program.FileName))
+                {
+                    Console.WriteLine("Error: no binary filename provided.");
+                    throw new InvalidOperationException("No binary filename provided to emulator.");
+                }
+                fileName = Program.FileName;
                 _SRAM64K.FillRam(fileName);
             }
 
             _KAPE_CPU = new CPU_6502();
+            
+            // keyboard MMIO device
+            _keyboardDevice = new KeyboardDevice(_KAPE_CPU);
 
             // Add input hooks
             _KAPE_CPU.RegisterIRQ(InputIRQState);
@@ -181,6 +191,28 @@ namespace KAPE8bitEmulator
 
             EncodeInputForIRQ(p1_up, p1_down, p1_left, p1_right, p2_up, p2_down, p2_left, p2_right);
 
+            // Push keyboard key-change events into MMIO keyboard device
+            bool shift = currentKeyState.IsKeyDown(Keys.LeftShift) || currentKeyState.IsKeyDown(Keys.RightShift);
+            foreach (Keys k in Enum.GetValues(typeof(Keys)))
+            {
+                bool now = currentKeyState.IsKeyDown(k);
+                bool was = lastKeyState.IsKeyDown(k);
+                if (now != was)
+                {
+                    byte code = 0;
+                    if (_keyboardDevice.ModeRaw)
+                        code = MapKeyToRaw7Bit(k);
+                    else
+                        code = MapKeyToAscii7Bit(k, shift);
+
+                    if (code != 0)
+                    {
+                        byte val = (byte)(code | (now ? 0x80 : 0x00)); // bit7 = down
+                        _keyboardDevice.PushKey(val);
+                    }
+                }
+            }
+
             lastKeyState = currentKeyState;
 
             base.Update(gameTime);
@@ -221,7 +253,7 @@ namespace KAPE8bitEmulator
         byte encodedInput = 0;
         bool pullInputIRQLow = false;
 
-        protected bool InputIRQState() => pullInputIRQLow;
+        protected bool InputIRQState() => pullInputIRQLow || (_keyboardDevice != null && _keyboardDevice.InputIRQState());
 
         protected byte ReadInput(UInt16 address) => encodedInput;
 
@@ -235,5 +267,52 @@ namespace KAPE8bitEmulator
         {
             Console.WriteLine($"DBG: {value.ToString().PadLeft(3)} ${value:X2} %{Convert.ToString(value, 2).PadLeft(8, '0')}");
         }
+
+        // Return a 7-bit key identifier (no ASCII translation). High bit remains used to indicate key-down (1)/key-up (0).
+        // The ROM should translate these key IDs to characters if needed.
+            private byte MapKeyToRaw7Bit(Keys k)
+            {
+                if (k >= Keys.A && k <= Keys.Z)
+                    return (byte)(1 + (k - Keys.A));
+                if (k >= Keys.D0 && k <= Keys.D9)
+                    return (byte)(30 + (k - Keys.D0));
+                if (k == Keys.Space) return 0x20;
+                if (k == Keys.Enter) return 0x28;
+                if (k == Keys.Back) return 0x2A;
+                if (k == Keys.Tab) return 0x2B;
+                if (k == Keys.OemMinus) return 0x2D;
+                if (k == Keys.OemPlus) return 0x2E;
+                if (k == Keys.OemComma) return 0x2C;
+                if (k == Keys.OemPeriod) return 0x2F;
+                return 0;
+            }
+
+            // Map physical key to 7-bit ASCII; respect Shift flag for letters/digits/punctuation
+            private byte MapKeyToAscii7Bit(Keys k, bool shift)
+            {
+                if (k >= Keys.A && k <= Keys.Z)
+                {
+                    char c = (char)('a' + (k - Keys.A));
+                    if (shift) c = char.ToUpper(c);
+                    return (byte)c;
+                }
+                if (k >= Keys.D0 && k <= Keys.D9)
+                {
+                    string noShift = "0123456789";
+                    string withShift = ")!@#$%^&*("; // shift+digits on US keyboard
+                    int idx = k - Keys.D0;
+                    return (byte)(shift ? withShift[idx] : noShift[idx]);
+                }
+                if (k == Keys.Space) return (byte)' ';
+                if (k == Keys.Enter) return 0x0D;
+                if (k == Keys.Back) return 0x08;
+                if (k == Keys.Tab) return 0x09;
+                // Basic punctuation
+                if (k == Keys.OemMinus) return (byte)(shift ? '_' : '-');
+                if (k == Keys.OemPlus) return (byte)(shift ? '+' : '=');
+                if (k == Keys.OemComma) return (byte)(shift ? '<' : ',');
+                if (k == Keys.OemPeriod) return (byte)(shift ? '>' : '.');
+                return 0;
+            }
     }
 }

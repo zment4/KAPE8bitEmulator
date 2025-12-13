@@ -45,7 +45,9 @@ namespace KAPE8bitEmulator
         {
             for (int i = startAddress; i <= endAddress; i++)
             {
-                ReadMap[(UInt16) i] = action;
+                // Do not clobber an existing registration — devices registered earlier should keep precedence.
+                if (ReadMap[(UInt16)i] == null)
+                    ReadMap[(UInt16) i] = action;
             }
         }
         public void RegisterWrite(UInt16 startAddress, UInt16 endAddress, Action<UInt16, byte> action)
@@ -69,6 +71,13 @@ namespace KAPE8bitEmulator
         // Registers
         UInt16 PC;
         byte A, X, Y, S, P;
+
+        // Debug accessors
+        public UInt16 DebugPC => PC;
+        public string DebugState()
+        {
+            return $"PC:${{PC:X4}} A:${{A:X2}} X:${{X:X2}} Y:${{Y:X2}} S:${{S:X2}} P:{{Convert.ToString(P,2).PadLeft(8,'0')}} nmiTriggered:{nmiTriggered} insideNMI:{insideNMI} insideIRQ:{insideIRQ}";
+        }
 
         bool nmiTriggered;
         bool insideNMI;
@@ -513,7 +522,7 @@ namespace KAPE8bitEmulator
         private void EnterIRQ()
         {
             if (KAPE8bitEmulator.DebugMode)
-                Console.WriteLine($"Entering IRQ at ${PC:X4}");
+                Console.WriteLine($"Entering IRQ at ${PC:X4} -- state before push: {DebugState()}");
 
             PushAddress(PC);
             Push(P);
@@ -524,7 +533,7 @@ namespace KAPE8bitEmulator
             PC = (UInt16)(hi << 8 | lo);
 
             if (KAPE8bitEmulator.DebugMode)
-                Console.WriteLine($"CPU reading IRQ vector, got: ${PC:X4}");
+                Console.WriteLine($"CPU reading IRQ vector, got: ${PC:X4} -- state after vector: {DebugState()}");
 
             insideIRQ = true;
             currentCycles += 7;

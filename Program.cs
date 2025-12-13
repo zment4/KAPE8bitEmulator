@@ -25,54 +25,33 @@ namespace KAPE8bitEmulator
         [STAThread]
         static void Main(string[] args)
         {
-            HasEmbeddedBinary = args.Length == 0;
-
             Console.WriteLine("KAPE-8bit 6502 Emulator (C) 2022 zment\n");
 
             Args = args;
-            IsHeadless = args.Contains("--headless");
 
-            // Parse --timeout (default 5000ms)
-            for (int i = 0; i < args.Length - 1; i++)
+            var parsed = ArgParser.Parse(args ?? Array.Empty<string>());
+
+            // Flags
+            IsHeadless = parsed.Switches.ContainsKey("headless");
+            if (parsed.Switches.TryGetValue("timeout", out var t) && int.TryParse(t, out int to))
+                HeadlessTimeoutMs = to;
+            if (parsed.Switches.TryGetValue("dump", out var dp))
+                HeadlessDumpPath = dp;
+            if (parsed.Switches.ContainsKey("debug"))
+                KAPE8bitEmulator.DebugMode = true;
+
+            // Determine binary filename (explicit --run takes precedence)
+            FileName = parsed.FileName;
+            HasEmbeddedBinary = string.IsNullOrEmpty(FileName);
+
+            // Validate explicit --run usage: if user supplied --run but no filename, error out
+            if (parsed.Switches.ContainsKey("run") && string.Equals(parsed.Switches["run"], "true", StringComparison.OrdinalIgnoreCase))
             {
-                if (args[i] == "--timeout" && int.TryParse(args[i + 1], out int timeout))
-                {
-                    HeadlessTimeoutMs = timeout;
-                    break;
-                }
+                Console.WriteLine("Error: '--run' specified but no filename provided. Use '--run <file>' or provide the filename positionally.");
+                Environment.Exit(1);
             }
-
-            // Parse --dump <path>
-            for (int i = 0; i < args.Length - 1; i++)
-            {
-                if (args[i] == "--dump")
-                {
-                    HeadlessDumpPath = args[i + 1];
-                    break;
-                }
-            }
-
-            // Parse binary filename argument
-            if (!HasEmbeddedBinary && Args.Length > 0)
-            {
-                // Find the binary file argument (usually after --run or first non-flag arg)
-                for (int i = 0; i < Args.Length; i++)
-                {
-                    Console.WriteLine($"Arg {i}: {Args[i]}");
-
-                    if (Args[i] == "--run" && i + 1 < Args.Length)
-                    {
-                        FileName = Args[i + 1];
-                        break;
-                    }
-
-                    if (!Args[i].StartsWith("--") && i > 0 && !Args[i - 1].StartsWith("--"))
-                    {
-                        FileName = Args[i];
-                        break;
-                    }
-                }
-            }            
+            // Print args for visibility (kept from previous behavior)
+            for (int i = 0; i < Args.Length; i++) Console.WriteLine($"Arg {i}: {Args[i]}");
 
             if (IsHeadless)
             {

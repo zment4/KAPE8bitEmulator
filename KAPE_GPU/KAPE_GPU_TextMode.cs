@@ -242,6 +242,7 @@ namespace KAPE8bitEmulator
                     // Terminal scroll not implemented yet
                     if (cursorY >= TEXT_HEIGHT)
                         cursorY = 0;
+                    return;
                 }
                 textBuffer[cursorX, cursorY] = b;
                 fgColorBuffer[cursorX, cursorY] = currentFGColor;
@@ -257,7 +258,7 @@ namespace KAPE8bitEmulator
                         cursorY = 0;
                 }
 
-                textBuffer[cursorX, cursorY] = CHAR_UNDERSCORE;
+                textBuffer[cursorX, cursorY] = CHAR_SPACE;
                 fgColorBuffer[cursorX, cursorY] = currentFGColor;
                 bgColorBuffer[cursorX, cursorY] = currentBGColor;
             }

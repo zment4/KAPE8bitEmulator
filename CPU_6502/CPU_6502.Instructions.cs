@@ -169,6 +169,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.IndirectIndexed,
                 };
 
+                instructionDescriptors[STY_ZPG] = new InstructionDescriptor()
+                {
+                    Instruction = STY_ZPG,
+                    Action = I_STY_ZPG,
+                    Cycles = 3,
+                    Mnemonic = "STY",
+                    AddressingMode = AddressingModeEnum.ZeroPage,
+                };
+
                 instructionDescriptors[CLD_IMP] = new InstructionDescriptor()
                 {
                     Instruction = CLD_IMP,
@@ -374,6 +383,15 @@ namespace KAPE8bitEmulator
                     Cycles = 4,
                     Mnemonic = "ADC",
                     AddressingMode = AddressingModeEnum.Absolute,
+                };
+
+                instructionDescriptors[ADC_ZPG] = new InstructionDescriptor()
+                {
+                    Instruction = ADC_ZPG,
+                    Action = I_ADC_ZPG,
+                    Cycles = 3,
+                    Mnemonic = "ADC",
+                    AddressingMode = AddressingModeEnum.ZeroPage,
                 };
 
                 instructionDescriptors[LDY_ABS] = new InstructionDescriptor()

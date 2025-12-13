@@ -13,6 +13,7 @@ namespace KAPE8bitEmulator
             public const byte ADC_IMM = 0x69;
             public const byte ADC_ABS = 0x6D;
             public const byte ADC_IIX = 0x71;
+            public const byte ADC_ZPG = 0x65;
 
             void I_ADC_X(byte b)
             {
@@ -38,6 +39,11 @@ namespace KAPE8bitEmulator
             void I_ADC_IIX()
             {
                 I_ADC_X(CPU.Read(CPU.FetchIndirectIndexedAddress()));
+            }
+
+            void I_ADC_ZPG()
+            {
+                I_ADC_X(CPU.Read(CPU.FetchOperand()));
             }
         }
     }
