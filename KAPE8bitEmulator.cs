@@ -83,11 +83,6 @@ namespace KAPE8bitEmulator
             // keyboard MMIO device
             _keyboardDevice = new KeyboardDevice(_KAPE_CPU);
 
-            // Keyboard device is created; device should register its IRQ via runtime code
-            // (the program is expected to write $0200/$0201 to install its ISR vector).
-
-            _KAPE_CPU.RegisterWrite(0xf7ff, 0xf7ff, OutputToConsole);
-
             _KAPE_GPU.RegisterWrite(_KAPE_CPU);
             _SRAM64K.RegisterMap(_KAPE_CPU);
 
@@ -254,8 +249,6 @@ namespace KAPE8bitEmulator
         byte lastEncodedInput = 0;
         byte encodedInput = 0;
         bool pullInputIRQLow = false;
-
-        protected bool InputIRQState() => pullInputIRQLow || (_keyboardDevice != null && _keyboardDevice.InputIRQState());
 
         protected byte ReadInput(UInt16 address) => encodedInput;
 

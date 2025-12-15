@@ -71,20 +71,14 @@ namespace KAPE8bitEmulator
             count++;
             if (KAPE8bitEmulator.TraversalMode)
             {
-                try
-                {
-                    Console.WriteLine($"[TRAV] PushKey val=${b:X2} count={count} rp={rp} wp={wp} irqEnable={irqEnable} irqPending={irqPending}");
-                }
-                catch { }
+                Console.WriteLine($"[TRAV] PushKey val=${b:X2} count={count} rp={rp} wp={wp} irqEnable={irqEnable} irqPending={irqPending}");
             }
             if (count == 1 && irqEnable)
             {
                 irqPending = true;
-                _cpu.RequestIRQ();
+                _cpu.TriggerIRQ();
             }
         }
-
-        public bool InputIRQState() => irqPending && irqEnable;
 
         public bool ModeRaw => modeRaw;
     }

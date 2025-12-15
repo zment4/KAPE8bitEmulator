@@ -103,13 +103,6 @@ namespace KAPE8bitEmulator
 
             sram.RegisterMap(cpu);
 
-            // Register IRQ predicate and vector for the keyboard (deferred
-            // vector write will occur when the IRQ predicate first returns
-            // true).
-            cpu.RegisterIRQWithVector(() => keyboard.InputIRQState(), 0x0331);
-
-            // Do not preinstall ISR vectors here; programs should register INT vectors themselves.
-
             // Create a minimal GPU proxy that just handles writes without graphics
             var gpuProxy = new HeadlessGPUProxy();
             gpuProxy.RegisterWrite(cpu);

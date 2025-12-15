@@ -28,8 +28,8 @@ namespace KAPE8bitEmulator
         }
         List<MemoryMappedWrite> WriteMap = new List<MemoryMappedWrite>();
         Func<UInt16, byte>[] ReadMap = new Func<UInt16, byte>[65536];
-        List<Func<bool>> IRQMap = new List<Func<bool>>();
-        List<Func<UInt16?>> IRQHandlers = new List<Func<UInt16?>>();
+
+        bool irqTriggered = false;
 
         Instructions instructions;
 
@@ -39,13 +39,13 @@ namespace KAPE8bitEmulator
             InitDebugCommands();
         }
 
-        public void RequestIRQ()
+        public void TriggerIRQ()
         {
             // IRQ requested by peripheral
-            if (KAPE8bitEmulator.DebugMode)
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
                 Console.WriteLine("IRQ requested by peripheral");
 
-            IRQRequested = true;
+            irqTriggered = true;
         }
 
         public void RegisterRead(UInt16 startAddress, UInt16 endAddress, Func<UInt16, byte> action)
@@ -119,10 +119,7 @@ namespace KAPE8bitEmulator
 
         // Debug accessors
         public UInt16 DebugPC => PC;
-        public string DebugStateString()
-        {
-            return $"PC:${{PC:X4}} A:${{A:X2}} X:${{X:X2}} Y:${{Y:X2}} S:${{S:X2}} P:{{Convert.ToString(P,2).PadLeft(8,'0')}} nmiTriggered:{nmiTriggered} insideNMI:{insideNMI} insideIRQ:{insideIRQ}";
-        }
+        public string DebugStateString() => $"PC:${PC:X4} A:${A:X2} X:${X:X2} Y:${Y:X2} S:${S:X2} P:{Convert.ToString(P,2).PadLeft(8,'0')} nmiTriggered:{nmiTriggered} insideNMI:{insideNMI} insideIRQ:{insideIRQ}";
 
         public void SetPC(UInt16 newPC)
         {
@@ -168,11 +165,13 @@ namespace KAPE8bitEmulator
 
             PC = (UInt16) (hi << 8 | lo);
 
-            if (KAPE8bitEmulator.DebugMode)
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
                 Console.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
 
             insideNMI = false;
             nmiTriggered = false;
+            insideIRQ = false;
+            irqTriggered = false;
 
             A = X = Y = 0;
             P = 0b00100000;
@@ -563,8 +562,9 @@ namespace KAPE8bitEmulator
                     if (nmiTriggered && !insideNMI) EnterNMI();
 
                     // Then check IRQ
-                    if (!insideIRQ && !insideNMI && !IsIntDisable() && IRQReuested)
+                    if (!insideIRQ && !insideNMI && !IsIntDisable() && irqTriggered)
                     {
+                        irqTriggered = false;
                         EnterIRQ();
                     }
                 }
@@ -618,6 +618,7 @@ namespace KAPE8bitEmulator
             // Read IRQ vector first
             var vecHi = Read(0xffff);
             var vecLo = Read(0xfffe);
+            var vec = (UInt16)(vecHi << 8 | vecLo);
 
             // Normal IRQ entry: push and transfer to vector
             var retHi2 = (byte)((PC >> 8) & 0xff);
@@ -626,10 +627,12 @@ namespace KAPE8bitEmulator
 
             PushAddress(PC);
             Push(P);
+
             if (KAPE8bitEmulator.TraversalMode)
                 Console.WriteLine($"[TRAV] normal push -> return=${PC:X4} P=${P:X2} S=${S:X2}");
 
             PC = vec;
+
             if (KAPE8bitEmulator.TraversalMode)
             {
                 Console.WriteLine($"[TRAV] IRQ vector -> PC set to ${PC:X4}");
