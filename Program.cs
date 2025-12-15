@@ -39,6 +39,9 @@ namespace KAPE8bitEmulator
                 HeadlessDumpPath = dp;
             if (parsed.Switches.ContainsKey("debug"))
                 KAPE8bitEmulator.DebugMode = true;
+            // Lightweight traversal tracing (Push/IRQ/PushKey)
+            if (parsed.Switches.ContainsKey("trace"))
+                KAPE8bitEmulator.TraversalMode = true;
 
             // Determine binary filename (explicit --run takes precedence)
             FileName = parsed.FileName;
@@ -92,7 +95,20 @@ namespace KAPE8bitEmulator
             }
 
             var cpu = new CPU_6502();
+            // Create a headless keyboard device so we can simulate key events
+            // for testing. Create the keyboard before mapping SRAM so the
+            // keyboard's read/write handlers take precedence over the SRAM
+            // fall-through handlers.
+            var keyboard = new KeyboardDevice(cpu);
+
             sram.RegisterMap(cpu);
+
+            // Register IRQ predicate and vector for the keyboard (deferred
+            // vector write will occur when the IRQ predicate first returns
+            // true).
+            cpu.RegisterIRQWithVector(() => keyboard.InputIRQState(), 0x0331);
+
+            // Do not preinstall ISR vectors here; programs should register INT vectors themselves.
 
             // Create a minimal GPU proxy that just handles writes without graphics
             var gpuProxy = new HeadlessGPUProxy();
@@ -102,6 +118,23 @@ namespace KAPE8bitEmulator
             cpu.Reset();
             cpu.Start();
             cpu.EnterCycleLoop();
+
+            // If requested, simulate a keypress to trigger IRQ handling.
+            if (Args != null && Array.Exists(Args, a => string.Equals(a, "--simulate-key", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Enable IRQ via the keyboard control register (bit1 = IRQ enable)
+                try
+                {
+                    cpu.WriteMemory(0xF770, 0x02);
+                    // Push ASCII 'A' with key-down bit (we use simple ASCII value)
+                    keyboard.PushKey(0x41);
+                    Console.WriteLine("[Headless] Simulated keypress 'A' (0x41)");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Headless] Failed to simulate key: {ex.Message}");
+                }
+            }
             
             // Run for timeout duration or until CPU halts
             long startTick = DateTime.UtcNow.Ticks;

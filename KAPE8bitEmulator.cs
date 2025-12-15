@@ -15,6 +15,8 @@ namespace KAPE8bitEmulator
     public class KAPE8bitEmulator : Game
     {
         public static bool DebugMode = false;
+        // When true, prints minimal traversal traces for Push/IRQ/PushKey paths
+        public static bool TraversalMode = false;
         const int NMI_FPS = 62;
 
         GraphicsDeviceManager _graphics;
@@ -81,8 +83,8 @@ namespace KAPE8bitEmulator
             // keyboard MMIO device
             _keyboardDevice = new KeyboardDevice(_KAPE_CPU);
 
-            // Add input hooks
-            _KAPE_CPU.RegisterIRQ(InputIRQState);
+            // Keyboard device is created; device should register its IRQ via runtime code
+            // (the program is expected to write $0200/$0201 to install its ISR vector).
 
             _KAPE_CPU.RegisterWrite(0xf7ff, 0xf7ff, OutputToConsole);
 

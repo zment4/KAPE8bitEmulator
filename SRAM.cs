@@ -25,6 +25,10 @@ namespace KAPE8bitEmulator
         public void Write(UInt16 address, byte val)
         {
             sram[address] = val;
+            if (KAPE8bitEmulator.DebugMode && address >= 0x0100 && address <= 0x01FF)
+            {
+                Console.WriteLine($"SRAM.Write stack: addr ${address:X4} <- ${val:X2}");
+            }
         }
 
         internal void FillRam(string binFile)

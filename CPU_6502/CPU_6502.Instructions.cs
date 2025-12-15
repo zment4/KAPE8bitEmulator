@@ -706,14 +706,21 @@ namespace KAPE8bitEmulator
 
             void I_JMP_ABS()
             {
-                CPU.PC = CPU.FetchAbsoluteAddress();
+                CPU.SetPC(CPU.FetchAbsoluteAddress());
             }
 
             // TODO: Decide whether to make it behave like MOS6502 and INC only the address low
             void I_JMP_ABI()
             {
                 UInt16 addr = CPU.FetchAbsoluteAddress();
-                CPU.PC = (UInt16) ((CPU.Read(addr)) | (CPU.Read((UInt16)(addr + 1)) << 8));
+                byte low = CPU.Read(addr);
+                byte high = CPU.Read((UInt16)(addr + 1));
+                UInt16 target = (UInt16)(low | (high << 8));
+                if (KAPE8bitEmulator.TraversalMode)
+                {
+                    Console.WriteLine($"[TRAV] JMP (indirect) addr=${addr:X4} -> low=${low:X2} high=${high:X2} target=${target:X4}");
+                }
+                CPU.SetPC(target);
             }
 
             void I_CLD_IMP()
@@ -734,7 +741,7 @@ namespace KAPE8bitEmulator
             void I_JSR_ABS()
             {
                 CPU.PushAddress((UInt16) (CPU.PC + 1));
-                CPU.PC = CPU.FetchAbsoluteAddress();
+                CPU.SetPC(CPU.FetchAbsoluteAddress());
             }
 
             void I_BCC_REL()
@@ -745,7 +752,7 @@ namespace KAPE8bitEmulator
                 if ((CPU.P & P_CARRY_MASK) != 0) return;
 
                 var oldPCh = CPU.PC & 0xff00;
-                CPU.PC = (UInt16) (CPU.PC + ((sbyte)val));
+                CPU.SetPC((UInt16) (CPU.PC + ((sbyte)val)));
                 var newPCh = CPU.PC & 0xff00;
 
                 // Set cycles accordingly depending on the page boundary
@@ -761,7 +768,7 @@ namespace KAPE8bitEmulator
                 if ((CPU.P & P_CARRY_MASK) != 1) return;
 
                 var oldPCh = CPU.PC & 0xff00;
-                CPU.PC = (UInt16)(CPU.PC + ((sbyte)val));
+                CPU.SetPC((UInt16)(CPU.PC + ((sbyte)val)));
                 var newPCh = CPU.PC & 0xff00;
 
                 // Set cycles accordingly depending on the page boundary
@@ -780,7 +787,7 @@ namespace KAPE8bitEmulator
                 instructionDescriptors[BNE_REL].Cycles += 1;
 
                 var oldPCh = CPU.PC & 0xff00;
-                CPU.PC = (UInt16)(CPU.PC + ((sbyte)val));
+                CPU.SetPC((UInt16)(CPU.PC + ((sbyte)val)));
                 var newPCh = CPU.PC & 0xff00;
 
                 // Set cycles accordingly depending on the page boundary
@@ -812,7 +819,7 @@ namespace KAPE8bitEmulator
             void I_RTI_IMP()
             {
                 CPU.P = (byte) (CPU.Pull() & 0b11001111);
-                CPU.PC = CPU.PullAddress();
+                CPU.SetPC(CPU.PullAddress());
                 if (CPU.insideNMI)
                 {
                     CPU.insideNMI = false;
@@ -831,7 +838,7 @@ namespace KAPE8bitEmulator
 
             void I_RTS_IMP()
             {
-                CPU.PC = (UInt16) (CPU.PullAddress() + 1);
+                CPU.SetPC((UInt16) (CPU.PullAddress() + 1));
             }
 
             void I_CLI_IMP()
@@ -901,7 +908,7 @@ namespace KAPE8bitEmulator
                 if (!CPU.GetZero()) return;
 
                 var oldPCh = CPU.PC & 0xff00;
-                CPU.PC = (UInt16)(CPU.PC + ((sbyte)rel));
+                CPU.SetPC((UInt16)(CPU.PC + ((sbyte)rel)));
                 var newPCh = CPU.PC & 0xff00;
 
                 // Set cycles accordingly depending on the page boundary
@@ -1073,7 +1080,7 @@ namespace KAPE8bitEmulator
                 instructionDescriptors[BMI_REL].Cycles += 1;
 
                 var oldPCh = CPU.PC & 0xff00;
-                CPU.PC = (UInt16)(CPU.PC + ((sbyte)val));
+                CPU.SetPC((UInt16)(CPU.PC + ((sbyte)val)));
                 var newPCh = CPU.PC & 0xff00;
 
                 // Set cycles accordingly depending on the page boundary

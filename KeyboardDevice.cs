@@ -69,11 +69,11 @@ namespace KAPE8bitEmulator
             fifo[wp] = b;
             wp = (wp + 1) % FIFO_SIZE;
             count++;
-            if (KAPE8bitEmulator.DebugMode)
+            if (KAPE8bitEmulator.TraversalMode)
             {
                 try
                 {
-                    Console.WriteLine($"PushKey: PC=${_cpu?.DebugPC:X4} val=${b:X2} count={count} rp={rp} wp={wp} irqEnable={irqEnable} irqPending={irqPending}");
+                    Console.WriteLine($"[TRAV] PushKey val=${b:X2} count={count} rp={rp} wp={wp} irqEnable={irqEnable} irqPending={irqPending}");
                 }
                 catch { }
             }
