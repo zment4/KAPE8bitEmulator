@@ -80,6 +80,7 @@ namespace KAPE8bitEmulator
             if (count == 1 && irqEnable)
             {
                 irqPending = true;
+                _cpu.RequestIRQ();
             }
         }
 
