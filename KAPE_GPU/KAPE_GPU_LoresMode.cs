@@ -39,7 +39,7 @@ namespace KAPE8bitEmulator
                 };
             }
 
-            public override void Draw()
+            public override void Draw(long currentTicks)
             {
                 for (int y = 0; y < FB_HEIGHT; y++)
                 {
@@ -65,6 +65,7 @@ namespace KAPE8bitEmulator
                     Console.WriteLine($"FREEZING!");
                     Task.Delay(Timeout.Infinite).Wait();
                     //Thread.Sleep(Timeout.Infinite);
+                    return;
                 }
 
                 cmd.Action(cmdBytes);

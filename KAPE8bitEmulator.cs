@@ -15,23 +15,25 @@ namespace KAPE8bitEmulator
     public class KAPE8bitEmulator : Game
     {
         public static bool DebugMode = false;
-        // When true, prints minimal traversal traces for Push/IRQ/PushKey paths
-        public static bool TraversalMode = false;
+        public static bool CpuTraceMode = false;
+        public static bool GpuTraceMode = false;
+
         const int NMI_FPS = 62;
+        public static long TICKS_PER_NMI => 10000000 / NMI_FPS;
 
-        GraphicsDeviceManager _graphics;
-        SpriteBatch _spriteBatch;
-        GameTime _drawGameTime;
+        GraphicsDeviceManager? _graphics;
+        SpriteBatch? _spriteBatch;
+        GameTime? _drawGameTime;
 
-        KAPE_GPU _KAPE_GPU;
-        CPU_6502 _KAPE_CPU;
-        SRAM64k _SRAM64K;
-        KeyboardDevice _keyboardDevice;
+        KAPE_GPU? _KAPE_GPU;
+        CPU_6502? _KAPE_CPU;
+        SRAM64k? _SRAM64K;
+        KeyboardDevice? _keyboardDevice;
 
-        GamePadState GamePadStatePlayer1;
-        GamePadState GamePadStatePlayer2;
+        GamePadState? GamePadStatePlayer1;
+        GamePadState? GamePadStatePlayer2;
 
-        string originalTitle;
+        string? originalTitle;
         public KAPE8bitEmulator()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -102,16 +104,15 @@ namespace KAPE8bitEmulator
             sw.Start();
 
             long lastNMIticks = 0;
-            long ticksPerNMI = 10000000 / NMI_FPS;
 
             NMITimer.Elapsed += (o, e) =>
             {
                 var elapsedTicks = sw.ElapsedTicks;
                 var deltaTicks = elapsedTicks - lastNMIticks;
-                if (deltaTicks >= ticksPerNMI)
+                if (deltaTicks >= TICKS_PER_NMI)
                 {
                     _KAPE_CPU.TriggerNMI();
-                    lastNMIticks += deltaTicks - (deltaTicks - ticksPerNMI);
+                    lastNMIticks += deltaTicks - (deltaTicks - TICKS_PER_NMI);
                 }
             };
 
@@ -136,11 +137,11 @@ namespace KAPE8bitEmulator
         protected override void Update(GameTime gameTime)
         {
             string unit = "Hz";
-            float cps = _KAPE_CPU.CurrentCyclesPerSecond;
+            float cps = _KAPE_CPU?.CurrentCyclesPerSecond ?? 0;
             if (cps > 1000) { cps /= 1000; unit = "kHz"; }
             if (cps > 1000) { cps /= 1000; unit = "MHz"; }
 
-            Window.Title = $"{originalTitle} - {cps:F3} {unit} - {_KAPE_CPU.CurrentNMIPerSecond} NPS - {1f / gameTime.ElapsedGameTime.TotalSeconds:N2} FPS";
+            Window.Title = $"{originalTitle} - {cps:F3} {unit} - {_KAPE_CPU?.CurrentNMIPerSecond ?? 0} NPS - {1f / gameTime.ElapsedGameTime.TotalSeconds:N2} FPS";
             currentKeyState = Keyboard.GetState();
 
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
@@ -176,15 +177,15 @@ namespace KAPE8bitEmulator
             GamePadStatePlayer1 = GamePad.GetState(0);
             GamePadStatePlayer2 = GamePad.GetState(1);
 
-            bool p1_up = currentKeyState.IsKeyDown(Keys.W) | (GamePadStatePlayer1.Buttons.Y == ButtonState.Pressed);
-            bool p1_down = currentKeyState.IsKeyDown(Keys.S) | (GamePadStatePlayer1.Buttons.A == ButtonState.Pressed);
-            bool p1_left = currentKeyState.IsKeyDown(Keys.A) | (GamePadStatePlayer1.Buttons.X == ButtonState.Pressed);
-            bool p1_right = currentKeyState.IsKeyDown(Keys.D) | (GamePadStatePlayer1.Buttons.B == ButtonState.Pressed);
+            bool p1_up = currentKeyState.IsKeyDown(Keys.W) | (GamePadStatePlayer1?.Buttons.Y == ButtonState.Pressed);
+            bool p1_down = currentKeyState.IsKeyDown(Keys.S) | (GamePadStatePlayer1?.Buttons.A == ButtonState.Pressed);
+            bool p1_left = currentKeyState.IsKeyDown(Keys.A) | (GamePadStatePlayer1?.Buttons.X == ButtonState.Pressed);
+            bool p1_right = currentKeyState.IsKeyDown(Keys.D) | (GamePadStatePlayer1?.Buttons.B == ButtonState.Pressed);
 
-            bool p2_up = currentKeyState.IsKeyDown(Keys.Up) | (GamePadStatePlayer2.Buttons.Y == ButtonState.Pressed);
-            bool p2_down = currentKeyState.IsKeyDown(Keys.Down) | (GamePadStatePlayer2.Buttons.A == ButtonState.Pressed);
-            bool p2_left = currentKeyState.IsKeyDown(Keys.Left) | (GamePadStatePlayer2.Buttons.X == ButtonState.Pressed);
-            bool p2_right = currentKeyState.IsKeyDown(Keys.Right) | (GamePadStatePlayer2.Buttons.B == ButtonState.Pressed);
+            bool p2_up = currentKeyState.IsKeyDown(Keys.Up) | (GamePadStatePlayer2?.Buttons.Y == ButtonState.Pressed);
+            bool p2_down = currentKeyState.IsKeyDown(Keys.Down) | (GamePadStatePlayer2?.Buttons.A == ButtonState.Pressed);
+            bool p2_left = currentKeyState.IsKeyDown(Keys.Left) | (GamePadStatePlayer2?.Buttons.X == ButtonState.Pressed);
+            bool p2_right = currentKeyState.IsKeyDown(Keys.Right) | (GamePadStatePlayer2?.Buttons.B == ButtonState.Pressed);
 
             EncodeInputForIRQ(p1_up, p1_down, p1_left, p1_right, p2_up, p2_down, p2_left, p2_right);
 
@@ -196,17 +197,7 @@ namespace KAPE8bitEmulator
                 bool was = lastKeyState.IsKeyDown(k);
                 if (now != was)
                 {
-                    byte code = 0;
-                    if (_keyboardDevice.ModeRaw)
-                        code = MapKeyToRaw7Bit(k);
-                    else
-                        code = MapKeyToAscii7Bit(k, shift);
-
-                    if (code != 0)
-                    {
-                        byte val = (byte)(code | (now ? 0x80 : 0x00)); // bit7 = down
-                        _keyboardDevice.PushKey(val);
-                    }
+                    _keyboardDevice.PushKey(k, shift, isDown: now);
                 }
             }
 
@@ -233,7 +224,6 @@ namespace KAPE8bitEmulator
             if (encodedInput != lastEncodedInput)
             {
 //                Console.WriteLine($"{Convert.ToString(encodedInput, 2).PadLeft(8, '0')}");
-                pullInputIRQLow = true;
             }
         }
 
@@ -248,13 +238,11 @@ namespace KAPE8bitEmulator
 
         byte lastEncodedInput = 0;
         byte encodedInput = 0;
-        bool pullInputIRQLow = false;
 
         protected byte ReadInput(UInt16 address) => encodedInput;
 
         protected byte ResetInputIRQState(UInt16 address) 
         {
-            pullInputIRQLow = false;
             return 0;
         }
 
@@ -262,52 +250,5 @@ namespace KAPE8bitEmulator
         {
             Console.WriteLine($"DBG: {value.ToString().PadLeft(3)} ${value:X2} %{Convert.ToString(value, 2).PadLeft(8, '0')}");
         }
-
-        // Return a 7-bit key identifier (no ASCII translation). High bit remains used to indicate key-down (1)/key-up (0).
-        // The ROM should translate these key IDs to characters if needed.
-            private byte MapKeyToRaw7Bit(Keys k)
-            {
-                if (k >= Keys.A && k <= Keys.Z)
-                    return (byte)(1 + (k - Keys.A));
-                if (k >= Keys.D0 && k <= Keys.D9)
-                    return (byte)(30 + (k - Keys.D0));
-                if (k == Keys.Space) return 0x20;
-                if (k == Keys.Enter) return 0x28;
-                if (k == Keys.Back) return 0x2A;
-                if (k == Keys.Tab) return 0x2B;
-                if (k == Keys.OemMinus) return 0x2D;
-                if (k == Keys.OemPlus) return 0x2E;
-                if (k == Keys.OemComma) return 0x2C;
-                if (k == Keys.OemPeriod) return 0x2F;
-                return 0;
-            }
-
-            // Map physical key to 7-bit ASCII; respect Shift flag for letters/digits/punctuation
-            private byte MapKeyToAscii7Bit(Keys k, bool shift)
-            {
-                if (k >= Keys.A && k <= Keys.Z)
-                {
-                    char c = (char)('a' + (k - Keys.A));
-                    if (shift) c = char.ToUpper(c);
-                    return (byte)c;
-                }
-                if (k >= Keys.D0 && k <= Keys.D9)
-                {
-                    string noShift = "0123456789";
-                    string withShift = ")!@#$%^&*("; // shift+digits on US keyboard
-                    int idx = k - Keys.D0;
-                    return (byte)(shift ? withShift[idx] : noShift[idx]);
-                }
-                if (k == Keys.Space) return (byte)' ';
-                if (k == Keys.Enter) return 0x0D;
-                if (k == Keys.Back) return 0x08;
-                if (k == Keys.Tab) return 0x09;
-                // Basic punctuation
-                if (k == Keys.OemMinus) return (byte)(shift ? '_' : '-');
-                if (k == Keys.OemPlus) return (byte)(shift ? '+' : '=');
-                if (k == Keys.OemComma) return (byte)(shift ? '<' : ',');
-                if (k == Keys.OemPeriod) return (byte)(shift ? '>' : '.');
-                return 0;
-            }
     }
 }

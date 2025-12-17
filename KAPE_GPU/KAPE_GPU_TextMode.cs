@@ -59,11 +59,20 @@ namespace KAPE8bitEmulator
 
             void CMD_TerminalMode(byte[] cmdBytes)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] Switching to TERMINAL mode");
+
+                fgColorBuffer[cursorX, cursorY] = currentFGColor;
+                bgColorBuffer[cursorX, cursorY] = currentBGColor;
+
                 _isTerminal = true;
             }
 
             void CMD_SendCharacter(byte[] cmdBytes)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] Sending character 0x{0:X2} to terminal", cmdBytes[1]);
+
                 byte b = cmdBytes[1];
 
                 HandleInputCharacter(b);
@@ -71,6 +80,9 @@ namespace KAPE8bitEmulator
 
             void CMD_ClearScreen(byte[] cmdBytes)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] Clearing screen with character 0x{0:X2}", cmdBytes[1]);
+
                 byte b = cmdBytes[1];
 
                 for (int y = 0; y < TEXT_HEIGHT; y++)
@@ -84,6 +96,9 @@ namespace KAPE8bitEmulator
 
             void CMD_SetIndex(byte[] cmdBytes)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] Setting character at ({0},{1}) to 0x{2:X2}", cmdBytes[1], cmdBytes[2], cmdBytes[3]);
+
                 byte x = (byte) (cmdBytes[1] % TEXT_WIDTH);
                 byte y = (byte) (cmdBytes[2] % TEXT_HEIGHT);
                 byte b = (byte) (cmdBytes[3]);
@@ -120,10 +135,40 @@ namespace KAPE8bitEmulator
                 }
             }
 
-            public override void Draw()
+
+            long previousFrame = -1;
+
+            byte currentCursorChar = CHAR_SPACE;
+            long currentCursorToggleFramesLeft = 17;
+
+            long drawStartedAtFrame = -1;
+
+            public override void Draw(long currentTicks)
             {
+                long calculatedFrame = currentTicks / KAPE8bitEmulator.TICKS_PER_NMI;
+                if (previousFrame == calculatedFrame)
+                {
+                    return;
+                }
+                previousFrame = calculatedFrame;
+                if (drawStartedAtFrame == -1)
+                    drawStartedAtFrame = calculatedFrame;
+
+                long currentFrame = calculatedFrame - drawStartedAtFrame;
+
+                currentCursorToggleFramesLeft--;
+                if (currentCursorToggleFramesLeft <= 0)
+                {
+                    currentCursorChar = currentCursorChar == CHAR_SPACE ? (byte) CHAR_UNDERSCORE : (byte) CHAR_SPACE;
+                    currentCursorToggleFramesLeft = 17;
+                }
+
+                if (IsTerminal) {
+                    textBuffer[cursorX, cursorY] = currentCursorChar;
+                }
+
                 DrawTextBuffer();
-                base.Draw();
+                base.Draw(currentTicks);
             }
 
             enum TerminalStateEnum
@@ -140,6 +185,9 @@ namespace KAPE8bitEmulator
 
             public override void HandleTerminalCommandByte(byte cmdByte)
             {
+                if(KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine($"[GPU] TERM CMD BYTE: 0x{cmdByte:X2}");
+
                 switch (terminalState)
                 {
                     case TerminalStateEnum.Normal:
@@ -159,6 +207,9 @@ namespace KAPE8bitEmulator
 
             private void TerminalState_Normal(byte cmdByte)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] TerminalState_Normal: Sending character 0x{0:X2} to terminal", cmdByte);
+
                 switch (cmdByte)
                 {
                     case KAPE_GPU_CMD_FIFO.TERM_ESCAPE:
@@ -172,6 +223,9 @@ namespace KAPE8bitEmulator
 
             private void TerminalState_Escape(byte cmdByte)
             { 
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] TerminalState_Escape: Sending character 0x{0:X2} to terminal", cmdByte);
+
                 switch (cmdByte)
                 {
                     case KAPE_GPU_CMD_FIFO.CF_TERM_COLOR_BINARY:
@@ -191,6 +245,9 @@ namespace KAPE8bitEmulator
 
             private void TerminalState_ColorBinary(byte cmdByte)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] TerminalState_ColorBinary: Sending character 0x{0:X2} to terminal", cmdByte);
+
                 currentBGColor = (byte)(cmdByte & 0xf);
                 currentFGColor = (byte)((cmdByte & 0xf0) >> 4);
 
@@ -200,6 +257,9 @@ namespace KAPE8bitEmulator
             
             private void TerminalState_Color(byte cmdByte)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] TerminalState_Color: Sending character 0x{0:X2} to terminal", cmdByte);
+
                 if (terminalFifoStateCount == 0 || terminalFifoStateCount == 1)
                 {
                     terminalFifoStateCount++;
@@ -235,36 +295,46 @@ namespace KAPE8bitEmulator
 
             void HandleInputCharacter(byte b)
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] Handling input character 0x{0:X2}", b);
+
+                currentCursorToggleFramesLeft = 17;
+                currentCursorChar = CHAR_UNDERSCORE;
+
                 if (b == '\n')
                 {
+                    textBuffer[cursorX, cursorY] = CHAR_SPACE;
+
                     cursorX = 0;
                     cursorY++;
-                    // Terminal scroll not implemented yet
+                    // TODO: Implement Terminal scroll
                     if (cursorY >= TEXT_HEIGHT)
                         cursorY = 0;
-                    return;
-                }
-                textBuffer[cursorX, cursorY] = b;
-                fgColorBuffer[cursorX, cursorY] = currentFGColor;
-                bgColorBuffer[cursorX, cursorY] = currentBGColor;
-
-                cursorX++;
-                if (cursorX >= TEXT_WIDTH)
+                } else 
                 {
-                    cursorX = 0;
-                    cursorY++;
-                    // Terminal scroll not implemented yet
-                    if (cursorY >= TEXT_HEIGHT)
-                        cursorY = 0;
-                }
+                    textBuffer[cursorX, cursorY] = b;
 
-                textBuffer[cursorX, cursorY] = CHAR_SPACE;
+                    cursorX++;
+                    if (cursorX >= TEXT_WIDTH)
+                    {
+                        cursorX = 0;
+                        cursorY++;
+                        // TODO: Implement Terminal scroll
+                        if (cursorY >= TEXT_HEIGHT)
+                            cursorY = 0;
+                    }
+                }
+        
                 fgColorBuffer[cursorX, cursorY] = currentFGColor;
                 bgColorBuffer[cursorX, cursorY] = currentBGColor;
+
             }
 
             public override void Reset()
             {
+                if (KAPE8bitEmulator.GpuTraceMode)
+                    Console.WriteLine("[GPU] RESET");
+
                 for (int y = 0, i = 0; y < TEXT_HEIGHT; y++)
                 {
                     for (int x = 0; x < TEXT_WIDTH; x++, i++)
@@ -274,6 +344,9 @@ namespace KAPE8bitEmulator
                     }
                 }
 
+                cursorX = 0;
+                cursorY = 0;
+                
                 _isTerminal = false;
                 terminalState = TerminalStateEnum.Normal;
 

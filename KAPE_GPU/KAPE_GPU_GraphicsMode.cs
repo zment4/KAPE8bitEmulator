@@ -52,7 +52,7 @@ namespace KAPE8bitEmulator
                 });
             }
 
-            public override void Draw()
+            public override void Draw(long currentTicks)
             {
                 for (int y = 0; y < TILEMAP_HEIGHT; y++)
                     for (int x = 0; x < TILEMAP_WIDTH; x++)
@@ -79,7 +79,7 @@ namespace KAPE8bitEmulator
                         DrawSprite(i);
                 }
 
-                base.Draw();
+                base.Draw(currentTicks);
             }
 
             void DrawSprite(int index)

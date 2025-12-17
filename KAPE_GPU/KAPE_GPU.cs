@@ -17,16 +17,15 @@ namespace KAPE8bitEmulator
         const int GPU_FPS = 40;
         const int TICKS_PER_FRAME = 10_000_000 / GPU_FPS;
 
-        IKAPE_GPU_Mode CurrentMode;
+        IKAPE_GPU_Mode? CurrentMode;
         List<IKAPE_GPU_Mode> gpuModes = new List<IKAPE_GPU_Mode>();
 
         Color[] _frameBuffer = new Color[FB_WIDTH * FB_HEIGHT];
-        Texture2D _outputTexture;
-        RenderTarget2D _integerScaledRenderTarget;
-        SpriteBatch _spriteBatch;
+        Texture2D? _outputTexture;
+        RenderTarget2D? _integerScaledRenderTarget;
+        SpriteBatch? _spriteBatch;
 
-        public AutoResetEvent ResetFinished = new AutoResetEvent(false);
-
+        public AutoResetEvent? ResetFinished = new AutoResetEvent(false);
         Color[] _RGBI_palette = new Color[]
         {
             new Color(0x00, 0x00, 0x00), // black
@@ -146,7 +145,7 @@ namespace KAPE8bitEmulator
         AutoResetEvent CMDQNotEmpty = new AutoResetEvent(false);
         Queue<byte> CMDQ = new Queue<byte>();
 
-        CPU_6502 cpu;
+        CPU_6502? cpu;
         public void RegisterWrite(CPU_6502 cpu)
         {
             this.cpu = cpu;
@@ -204,7 +203,7 @@ namespace KAPE8bitEmulator
                     // Introduce a waitstate to simulate screen updates and command handling waitstates
                     // TODO: make it more conformant with real elapsed time instead
 
-                    CurrentMode.Draw();
+                    CurrentMode.Draw(DateTime.Now.Ticks);
 
                     //long frameCurrentTime = DateTime.Now.Ticks;
                     //long deltaFrameTime = TICKS_PER_FRAME - (frameStartTime - frameCurrentTime);

@@ -7,7 +7,7 @@ namespace KAPE8bitEmulator
     {
         public Dictionary<string, string> Switches { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public List<string> Positionals { get; } = new List<string>();
-        public string FileName { get; set; }
+        public string? FileName { get; set; }
     }
 
     public static class ArgParser

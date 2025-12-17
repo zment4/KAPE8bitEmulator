@@ -75,7 +75,7 @@ namespace KAPE8bitEmulator
                 });
             }
 
-            public virtual void Draw()
+            public virtual void Draw(long currentTicks)
             {
             }
 

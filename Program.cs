@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Data;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using Microsoft.VisualBasic;
+using Microsoft.Xna.Framework.Input;
 
 namespace KAPE8bitEmulator
 {
@@ -40,8 +42,10 @@ namespace KAPE8bitEmulator
             if (parsed.Switches.ContainsKey("debug"))
                 KAPE8bitEmulator.DebugMode = true;
             // Lightweight traversal tracing (Push/IRQ/PushKey)
-            if (parsed.Switches.ContainsKey("trace"))
-                KAPE8bitEmulator.TraversalMode = true;
+            if (parsed.Switches.ContainsKey("trace-cpu"))
+                KAPE8bitEmulator.CpuTraceMode = true;
+            if (parsed.Switches.ContainsKey("trace-gpu"))
+                KAPE8bitEmulator.GpuTraceMode = true;
 
             // Determine binary filename (explicit --run takes precedence)
             FileName = parsed.FileName;
@@ -120,7 +124,7 @@ namespace KAPE8bitEmulator
                 {
                     cpu.WriteMemory(0xF770, 0x02);
                     // Push ASCII 'A' with key-down bit (we use simple ASCII value)
-                    keyboard.PushKey(0x41);
+                    keyboard.PushKey(Keys.A, false, true);
                     Console.WriteLine("[Headless] Simulated keypress 'A' (0x41)");
                 }
                 catch (Exception ex)

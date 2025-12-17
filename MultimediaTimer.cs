@@ -156,7 +156,7 @@ namespace HighPrecisionTimer
             timerId = 0;
         }
 
-        public event EventHandler Elapsed;
+        public event EventHandler? Elapsed;
 
         public void Dispose()
         {

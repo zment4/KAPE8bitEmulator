@@ -18,18 +18,18 @@ namespace KAPE8bitEmulator
         const long TARGET_HZ = 2000000;
         //const long TARGET_HZ = 14000;
 
-        public AutoResetEvent ResetFinished;
+        public AutoResetEvent? ResetFinished;
 
         class MemoryMappedWrite
         {
             public UInt16 StartAddress;
             public UInt16 EndAddress;
-            public Action<UInt16, byte> Write;
+            public Action<UInt16, byte>? Write;
         }
         List<MemoryMappedWrite> WriteMap = new List<MemoryMappedWrite>();
         Func<UInt16, byte>[] ReadMap = new Func<UInt16, byte>[65536];
 
-        bool irqTriggered = false;
+        bool IRQRequested => IRQSignalers.Any(func => func());
 
         Instructions instructions;
 
@@ -39,14 +39,18 @@ namespace KAPE8bitEmulator
             InitDebugCommands();
         }
 
-        public void TriggerIRQ()
+        List<Func<bool>> IRQSignalers = new List<Func<bool>>();
+
+        public void RegisterIRQ(Func<bool> func, string peripheralName)
         {
             // IRQ requested by peripheral
-            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
-                Console.WriteLine("IRQ requested by peripheral");
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode)
+                Console.WriteLine($"IRQ registered by peripheral: {peripheralName}");
 
-            irqTriggered = true;
+            IRQSignalers.Add(func);
         }
+
+
 
         public void RegisterRead(UInt16 startAddress, UInt16 endAddress, Func<UInt16, byte> action)
         {
@@ -69,7 +73,7 @@ namespace KAPE8bitEmulator
             var handler = ReadMap[address];
             if (handler == null)
             {
-                if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
+                if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode)
                     Console.WriteLine($"Read: no handler for ${address:X4}");
                 return 0;
             }
@@ -81,12 +85,12 @@ namespace KAPE8bitEmulator
                 if (address == 0xfffe || address == 0xffff)
                     Console.WriteLine($"ReadVector: addr ${address:X4} -> ${val:X2}");
             }
-            if (KAPE8bitEmulator.TraversalMode)
+            if (KAPE8bitEmulator.CpuTraceMode)
             {
                 if (address == 0x0000)
-                    Console.WriteLine($"[TRAV] Read @ $0000 -> ${val:X2}");
+                    Console.WriteLine($"[CPU] Read @ $0000 -> ${val:X2}");
                 if (address == 0xfffe || address == 0xffff)
-                    Console.WriteLine($"[TRAV] ReadVector byte @ ${address:X4} -> ${val:X2}");
+                    Console.WriteLine($"[CPU] ReadVector byte @ ${address:X4} -> ${val:X2}");
             }
             return val;
         }
@@ -123,12 +127,12 @@ namespace KAPE8bitEmulator
 
         public void SetPC(UInt16 newPC)
         {
-            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode)
             {
                 Console.WriteLine($"SetPC: ${PC:X4} -> ${newPC:X4} -- state: {DebugStateString()}");
             }
             PC = newPC;
-            if ((KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode) && PC == 0)
+            if ((KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode) && PC == 0)
             {
                 Console.WriteLine("*** ALERT: PC set to $0000 ***");
                 PrintRegisters();
@@ -165,13 +169,12 @@ namespace KAPE8bitEmulator
 
             PC = (UInt16) (hi << 8 | lo);
 
-            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode)
                 Console.WriteLine($"CPU reading reset vector, got: ${PC:X4}");
 
             insideNMI = false;
             nmiTriggered = false;
             insideIRQ = false;
-            irqTriggered = false;
 
             A = X = Y = 0;
             P = 0b00100000;
@@ -206,9 +209,9 @@ namespace KAPE8bitEmulator
         {
             byte instruction = Read(PC);
             var instr = instructions[instruction];
-            if (KAPE8bitEmulator.TraversalMode)
+            if (KAPE8bitEmulator.CpuTraceMode)
             {
-                Console.WriteLine($"[TRAV] Fetch @ ${PC:X4} -> ${instruction:X2}");
+                Console.WriteLine($"[CPU] Fetch @ ${PC:X4} -> ${instruction:X2}");
             }
 
             if (KAPE8bitEmulator.DebugMode && !insideNMI)
@@ -559,14 +562,12 @@ namespace KAPE8bitEmulator
                     }
 
                     // Check NMI first
-                    if (nmiTriggered && !insideNMI) EnterNMI();
+                    if (nmiTriggered && !insideNMI)
+                        EnterNMI();
 
                     // Then check IRQ
-                    if (!insideIRQ && !insideNMI && !IsIntDisable() && irqTriggered)
-                    {
-                        irqTriggered = false;
+                    if (!insideIRQ && !insideNMI && !IsIntDisable() && IRQRequested)
                         EnterIRQ();
-                    }
                 }
             })
             //}) { IsBackground = true }
@@ -577,10 +578,15 @@ namespace KAPE8bitEmulator
 
         private void EnterNMI()
         {
+            nmiTriggered = false;
+
             currentNMI++;
 
             if (KAPE8bitEmulator.DebugMode && !HideNMIMessages)
                 Console.WriteLine($"Entering NMI at ${PC:X4}");
+
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode)
+                Console.WriteLine($"[CPU] Entering NMI at ${PC:X4} -- S=${S:X2} P=${P:X2}");
 
             var retHi = (byte)((PC >> 8) & 0xff);
             var retLo = (byte)(PC & 0xff);
@@ -612,8 +618,8 @@ namespace KAPE8bitEmulator
 
         private void EnterIRQ()
         {
-            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.TraversalMode)
-                Console.WriteLine($"[TRAV] Entering IRQ at ${PC:X4} -- S=${S:X2} P=${P:X2}");
+            if (KAPE8bitEmulator.DebugMode || KAPE8bitEmulator.CpuTraceMode)
+                Console.WriteLine($"[CPU] Entering IRQ at ${PC:X4} -- S=${S:X2} P=${P:X2}");
 
             // Read IRQ vector first
             var vecHi = Read(0xffff);
@@ -628,17 +634,17 @@ namespace KAPE8bitEmulator
             PushAddress(PC);
             Push(P);
 
-            if (KAPE8bitEmulator.TraversalMode)
-                Console.WriteLine($"[TRAV] normal push -> return=${PC:X4} P=${P:X2} S=${S:X2}");
+            if (KAPE8bitEmulator.CpuTraceMode)
+                Console.WriteLine($"[CPU] normal push -> return=${PC:X4} P=${P:X2} S=${S:X2}");
 
             PC = vec;
 
-            if (KAPE8bitEmulator.TraversalMode)
+            if (KAPE8bitEmulator.CpuTraceMode)
             {
-                Console.WriteLine($"[TRAV] IRQ vector -> PC set to ${PC:X4}");
+                Console.WriteLine($"[CPU] IRQ vector -> PC set to ${PC:X4}");
                 try
                 {
-                    Console.Write("[TRAV] Prefetch bytes at PC: ");
+                    Console.Write("[CPU] Prefetch bytes at PC: ");
                     for (int i = 0; i < 8; i++)
                     {
                         Console.Write($"{Read((UInt16)(PC + i)):X2} ");
@@ -654,8 +660,8 @@ namespace KAPE8bitEmulator
 
         void Push(byte b)
         {
-            if (KAPE8bitEmulator.TraversalMode)
-                Console.WriteLine($"[TRAV] Push byte ${b:X2} to addr ${ (0x0100 | S):X4} S(before)=${S:X2}");
+            if (KAPE8bitEmulator.CpuTraceMode)
+                Console.WriteLine($"[CPU] Push byte ${b:X2} to addr ${ (0x0100 | S):X4} S(before)=${S:X2}");
             Write((UInt16)(0x0100 | S--), b);
         }
 

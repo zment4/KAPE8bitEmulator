@@ -716,9 +716,9 @@ namespace KAPE8bitEmulator
                 byte low = CPU.Read(addr);
                 byte high = CPU.Read((UInt16)(addr + 1));
                 UInt16 target = (UInt16)(low | (high << 8));
-                if (KAPE8bitEmulator.TraversalMode)
+                if (KAPE8bitEmulator.CpuTraceMode)
                 {
-                    Console.WriteLine($"[TRAV] JMP (indirect) addr=${addr:X4} -> low=${low:X2} high=${high:X2} target=${target:X4}");
+                    Console.WriteLine($"[CPU] JMP (indirect) addr=${addr:X4} -> low=${low:X2} high=${high:X2} target=${target:X4}");
                 }
                 CPU.SetPC(target);
             }
