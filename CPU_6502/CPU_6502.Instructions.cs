@@ -820,6 +820,8 @@ namespace KAPE8bitEmulator
             {
                 CPU.P = (byte) (CPU.Pull() & 0b11001111);
                 CPU.SetPC(CPU.PullAddress());
+                CPU.ClearIntDisable();
+                
                 if (CPU.insideNMI)
                 {
                     CPU.insideNMI = false;

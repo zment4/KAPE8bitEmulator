@@ -50,7 +50,7 @@ namespace KAPE8bitEmulator
             return b;
         }
 
-        protected void WriteControl(UInt16 address, byte value)
+        public void WriteControl(UInt16 address, byte value)
         {
             if ((value & 0x01) != 0) // CLEAR FIFO
             {
@@ -131,7 +131,7 @@ namespace KAPE8bitEmulator
                 return (byte)(shift ? withShift[idx] : noShift[idx]);
             }
             if (k == Keys.Space) return (byte)' ';
-            if (k == Keys.Enter) return (byte)'\n';
+            if (k == Keys.Enter) return (byte)0x0a; // LF
             if (k == Keys.Back) return 0x08;
             if (k == Keys.Tab) return 0x09;
             // Basic punctuation

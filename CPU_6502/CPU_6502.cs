@@ -50,8 +50,6 @@ namespace KAPE8bitEmulator
             IRQSignalers.Add(func);
         }
 
-
-
         public void RegisterRead(UInt16 startAddress, UInt16 endAddress, Func<UInt16, byte> action)
         {
             for (int i = startAddress; i <= endAddress; i++)
@@ -105,7 +103,7 @@ namespace KAPE8bitEmulator
             }
         }
 
-        // Expose a way for emulator components to write into memory via CPU API
+        // Expose a way for emulator components to RW into memory via CPU API
         public void WriteMemory(UInt16 address, byte value)
         {
             Write(address, value);
@@ -115,6 +113,44 @@ namespace KAPE8bitEmulator
         {
             Write(address, (byte)(value & 0xFF));
             Write((UInt16)(address + 1), (byte)((value >> 8) & 0xFF));
+        }
+
+        // Expose a way for emulator components to write into memory via CPU API
+        public byte ReadMemory(UInt16 address)
+        {
+            return Read(address);
+        }
+
+        public UInt16 ReadMemory16(UInt16 address)
+        {
+            byte lo = Read(address);
+            byte hi = Read((UInt16)(address + 1));
+            return (UInt16)(hi << 8 | lo);
+        }        
+
+        public void RegisterExpectionWriteBreakpoint(UInt16 address, string description)
+        {
+            RegisterWrite(address, address, (addr, val) =>
+            {
+                Console.WriteLine($"*** Write Breakpoint hit at ${addr:X4} ({description}): value=${val:X2} ***");
+                throw new Exception($"Write Breakpoint hit at ${addr:X4} ({description})");
+            });
+        }
+
+        List<Tuple<UInt16, string, Action>> PCBreakpointActions = new List<Tuple<UInt16, string, Action>>();
+
+        public void RegisterPCBreakpointAction(UInt16 address, string description, Action action)
+        {
+            PCBreakpointActions.Add(new Tuple<UInt16, string, Action>(address, description, action));
+        }
+
+        public void RegisterWriteBreakpointAction(UInt16 address, string description, Action action)
+        {
+            RegisterWrite(address, address, (addr, val) =>
+            {
+                Console.WriteLine($"*** Write Breakpoint hit at ${addr:X4} ({description}): value=${val:X2} ***");
+                action();
+            });
         }
 
         // Registers
@@ -177,7 +213,7 @@ namespace KAPE8bitEmulator
             insideIRQ = false;
 
             A = X = Y = 0;
-            P = 0b00100000;
+            P = 0b00000100;
             S = 0xff;
         }
 
@@ -554,6 +590,13 @@ namespace KAPE8bitEmulator
 
                     RunCycle();
 
+                    // Check for PC breakpoints
+                    foreach (var bp in PCBreakpointActions.Where(x => x.Item1 == PC))
+                    {
+                        Console.WriteLine($"PC Breakpoint hit at ${PC:X4} ({bp.Item2})");
+                        bp.Item3();
+                    }
+
                     // sleep until we haven't been too fast
                     while (currentCycles >= (limiterSW.Elapsed.TotalSeconds * TARGET_HZ))
                     {
@@ -562,7 +605,7 @@ namespace KAPE8bitEmulator
                     }
 
                     // Check NMI first
-                    if (nmiTriggered && !insideNMI)
+                    if (nmiTriggered) 
                         EnterNMI();
 
                     // Then check IRQ
@@ -594,6 +637,7 @@ namespace KAPE8bitEmulator
 
             PushAddress(PC);
             Push(P);
+            SetIntDisable();
 
             if (KAPE8bitEmulator.DebugMode && !HideNMIMessages)
             {

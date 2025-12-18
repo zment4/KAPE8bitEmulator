@@ -17,7 +17,7 @@ namespace KAPE8bitEmulator
 
         public static bool HasEmbeddedBinary = false;
         public static bool IsHeadless = false;
-        public static int HeadlessTimeoutMs = 5000;
+        public static int HeadlessTimeoutMs = 200;
         public static string HeadlessDumpPath = null;
         public static string FileName = "";
 
@@ -111,10 +111,60 @@ namespace KAPE8bitEmulator
             var gpuProxy = new HeadlessGPUProxy();
             gpuProxy.RegisterWrite(cpu);
 
+            // Register helpful write breakpoints early to observe allocator and pointer stores
+            cpu.RegisterWriteBreakpointAction(0x0000, "alloc returned low", () =>
+            {
+                Console.WriteLine($"[BP] Write to $0000: $00={cpu.ReadMemory(0x0000):X2} $01={cpu.ReadMemory(0x0001):X2}");
+            });
+            cpu.RegisterWriteBreakpointAction(0x0001, "alloc returned high", () =>
+            {
+                Console.WriteLine($"[BP] Write to $0001: $00={cpu.ReadMemory(0x0000):X2} $01={cpu.ReadMemory(0x0001):X2}");
+            });
+
+            cpu.RegisterWriteBreakpointAction(0x0014, "input_buffer low written", () =>
+            {
+                byte lo = cpu.ReadMemory(0x0014);
+                byte hi = cpu.ReadMemory(0x0015);
+                ushort addr = (ushort)(hi << 8 | lo);
+                Console.WriteLine($"[BP] input_buffer set to ${addr:X4} (lo=${lo:X2},hi=${hi:X2})");
+                try
+                {
+                    Console.Write("[BP] Heap bytes: ");
+                    for (int i = 0; i < 16; i++) Console.Write($"{cpu.ReadMemory((ushort)(addr + i)):X2} ");
+                    Console.WriteLine();
+                }
+                catch { }
+            });
+            cpu.RegisterWriteBreakpointAction(0x0015, "input_buffer high written", () =>
+            {
+                byte lo = cpu.ReadMemory(0x0014);
+                byte hi = cpu.ReadMemory(0x0015);
+                ushort addr = (ushort)(hi << 8 | lo);
+                Console.WriteLine($"[BP] input_buffer set to ${addr:X4} (lo=${lo:X2},hi=${hi:X2})");
+            });
+
+            cpu.RegisterWriteBreakpointAction(0x0220, "heap bump low written", () =>
+            {
+                Console.WriteLine($"[BP] Heap bump low -> $0220={cpu.ReadMemory(0x0220):X2} $0221={cpu.ReadMemory(0x0221):X2}");
+            });
+            cpu.RegisterWriteBreakpointAction(0x0221, "heap bump high written", () =>
+            {
+                Console.WriteLine($"[BP] Heap bump high -> $0220={cpu.ReadMemory(0x0220):X2} $0221={cpu.ReadMemory(0x0221):X2}");
+            });
+
             Console.WriteLine("[Headless] Starting CPU execution...");
+
             cpu.Reset();
             cpu.Start();
             cpu.EnterCycleLoop();
+
+            cpu.RegisterPCBreakpointAction(0x0F8D7, "Past ROM_FrameAsByte Reset", () =>
+            {
+                Console.WriteLine("[Headless] Reached post-reset breakpoint at $0F8D7, writing test value 0x21 to $0260");
+                cpu.WriteMemory(0x0260, 0x21);
+            });
+
+            Console.WriteLine($"Memory at address 0x0260: {cpu.ReadMemory(0x0260):X2}");
 
             // If requested, simulate a keypress to trigger IRQ handling.
             if (Args != null && Array.Exists(Args, a => string.Equals(a, "--simulate-key", StringComparison.OrdinalIgnoreCase)))
@@ -122,8 +172,16 @@ namespace KAPE8bitEmulator
                 // Enable IRQ via the keyboard control register (bit1 = IRQ enable)
                 try
                 {
-                    cpu.WriteMemory(0xF770, 0x02);
-                    // Push ASCII 'A' with key-down bit (we use simple ASCII value)
+                    int writeBpCounter = 0;
+                    cpu.RegisterWriteBreakpointAction(0x0201, "INT_Vector 0 written", () =>
+                    {
+                        writeBpCounter++;
+                        if (writeBpCounter == 2) {
+                            Console.WriteLine("[Headless] Enabling Keyboard IRQs when INT Vector low byte is written");
+                            keyboard.WriteControl(0xF770, 0x02); // bit1 = IRQ enable
+                        }
+                    });
+
                     keyboard.PushKey(Keys.A, false, true);
                     Console.WriteLine("[Headless] Simulated keypress 'A' (0x41)");
                 }

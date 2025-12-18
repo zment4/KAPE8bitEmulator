@@ -301,7 +301,7 @@ namespace KAPE8bitEmulator
                 currentCursorToggleFramesLeft = 17;
                 currentCursorChar = CHAR_UNDERSCORE;
 
-                if (b == '\n')
+                if (b == 0x0a)
                 {
                     textBuffer[cursorX, cursorY] = CHAR_SPACE;
 
