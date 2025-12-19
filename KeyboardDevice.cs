@@ -104,13 +104,14 @@ namespace KAPE8bitEmulator
             if (k >= Keys.D0 && k <= Keys.D9)
                 return (byte)(30 + (k - Keys.D0));
             if (k == Keys.Space) return 0x20;
-            if (k == Keys.Enter) return 0x28;
-            if (k == Keys.Back) return 0x2A;
-            if (k == Keys.Tab) return 0x2B;
-            if (k == Keys.OemMinus) return 0x2D;
-            if (k == Keys.OemPlus) return 0x2E;
-            if (k == Keys.OemComma) return 0x2C;
-            if (k == Keys.OemPeriod) return 0x2F;
+            if (k == Keys.Enter) return 0x21;
+            if (k == Keys.Back) return 0x22;
+            if (k == Keys.Tab) return 0x23;
+            if (k == Keys.OemMinus) return 0x24;
+            if (k == Keys.OemPlus) return 0x25;
+            if (k == Keys.OemComma) return 0x26;
+            if (k == Keys.OemPeriod) return 0x27;
+
             return 0;
         }
 
@@ -130,9 +131,9 @@ namespace KAPE8bitEmulator
                 int idx = k - Keys.D0;
                 return (byte)(shift ? withShift[idx] : noShift[idx]);
             }
-            if (k == Keys.Space) return (byte)' ';
+            if (k == Keys.Space) return (byte)0x20; // Space
             if (k == Keys.Enter) return (byte)0x0a; // LF
-            if (k == Keys.Back) return 0x08;
+            if (k == Keys.Back) return 0x7f;      // DEL (Backspace)
             if (k == Keys.Tab) return 0x09;
             // Basic punctuation
             if (k == Keys.OemMinus) return (byte)(shift ? '_' : '-');

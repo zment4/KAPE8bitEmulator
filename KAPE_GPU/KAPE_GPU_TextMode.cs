@@ -301,29 +301,42 @@ namespace KAPE8bitEmulator
                 currentCursorToggleFramesLeft = 17;
                 currentCursorChar = CHAR_UNDERSCORE;
 
-                if (b == 0x0a)
+                ((Action)(b switch
                 {
-                    textBuffer[cursorX, cursorY] = CHAR_SPACE;
-
-                    cursorX = 0;
-                    cursorY++;
-                    // TODO: Implement Terminal scroll
-                    if (cursorY >= TEXT_HEIGHT)
-                        cursorY = 0;
-                } else 
-                {
-                    textBuffer[cursorX, cursorY] = b;
-
-                    cursorX++;
-                    if (cursorX >= TEXT_WIDTH)
+                    0x7f => () => // DEL (Backspace)
                     {
+                        if (cursorX > 0)
+                        {
+                            textBuffer[cursorX, cursorY] = CHAR_SPACE;
+                            cursorX--;
+                            textBuffer[cursorX, cursorY] = CHAR_SPACE;
+                        }
+                    },
+                    0x0a => () => // Line Feed
+                    {
+                        textBuffer[cursorX, cursorY] = CHAR_SPACE;
+
                         cursorX = 0;
                         cursorY++;
                         // TODO: Implement Terminal scroll
                         if (cursorY >= TEXT_HEIGHT)
                             cursorY = 0;
+                    },
+                    _  => () => 
+                    { 
+                        textBuffer[cursorX, cursorY] = b;
+
+                        cursorX++;
+                        if (cursorX >= TEXT_WIDTH)
+                        {
+                            cursorX = 0;
+                            cursorY++;
+                            // TODO: Implement Terminal scroll
+                            if (cursorY >= TEXT_HEIGHT)
+                                cursorY = 0;
+                        }
                     }
-                }
+                }))();
         
                 fgColorBuffer[cursorX, cursorY] = currentFGColor;
                 bgColorBuffer[cursorX, cursorY] = currentBGColor;
