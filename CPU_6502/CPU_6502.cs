@@ -776,6 +776,18 @@ namespace KAPE8bitEmulator
             return FetchIndirectIndexedAddress(out pageBoundaryCrossed);
         }
 
+        private UInt16 FetchIndexedIndirectAddress()
+        {
+            // Indexed-Indirect (aka (zp,X)) addressing: take zero-page base, add X (wrap in zero-page),
+            // then read 16-bit address from that zero-page location (low byte at zp, high byte at (zp+1)&0xFF)
+            byte baseZp = FetchOperand();
+            byte zp = (byte)((baseZp + X) & 0xFF);
+
+            byte lo = Read(zp);
+            byte hi = Read((UInt16)((zp + 1) & 0xFF));
+            return (UInt16)(lo | (hi << 8));
+        }
+
         private UInt16 FetchIndirectIndexedAddress(out bool pageBoundaryCrossed)
         {
             UInt16 addr = ReadAddress((UInt16)FetchOperand());

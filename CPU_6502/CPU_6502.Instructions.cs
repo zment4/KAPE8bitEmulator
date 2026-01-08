@@ -142,6 +142,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.IndirectIndexed,
                 };
 
+                instructionDescriptors[LDA_IXI] = new InstructionDescriptor()
+                {
+                    Instruction = LDA_IXI,
+                    Action = I_LDA_IXI,
+                    Cycles = 6,
+                    Mnemonic = "LDA",
+                    AddressingMode = AddressingModeEnum.IndexedIndirect,
+                };
+
                 instructionDescriptors[STA_ABS] = new InstructionDescriptor()
                 {
                     Instruction = STA_ABS,

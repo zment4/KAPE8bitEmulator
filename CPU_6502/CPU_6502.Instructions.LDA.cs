@@ -12,6 +12,7 @@ namespace KAPE8bitEmulator
         {
             public const byte LDA_IMM = 0xA9;
             public const byte LDA_ZPG = 0xA5;
+            public const byte LDA_IXI = 0xA1;
             public const byte LDA_ABS = 0xAD;
             public const byte LDA_IIX = 0xB1;
             public const byte LDA_ABX = 0xBD;
@@ -39,6 +40,12 @@ namespace KAPE8bitEmulator
                 I_LDA_X(CPU.Read(CPU.FetchIndirectIndexedAddress(out pageBoundaryCrossed)));
 
                 instructionDescriptors[LDA_IIX].Cycles = pageBoundaryCrossed ? 6 : 5;
+            }
+
+            void I_LDA_IXI()
+            {
+                // (zp,X) addressing
+                I_LDA_X(CPU.Read(CPU.FetchIndexedIndirectAddress()));
             }
 
             void I_LDA_ZPG()
