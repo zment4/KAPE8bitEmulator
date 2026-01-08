@@ -583,6 +583,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.ZeroPage,
                 };
 
+                instructionDescriptors[CMP_IIX] = new InstructionDescriptor()
+                {
+                    Instruction = CMP_IIX,
+                    Action = I_CMP_IIX,
+                    Cycles = 5, // or 6 if page boundary crossed
+                    Mnemonic = "CMP",
+                    AddressingMode = AddressingModeEnum.IndirectIndexed,
+                };                
+
                 instructionDescriptors[TYA_IMP] = new InstructionDescriptor()
                 {
                     Instruction = TYA_IMP,

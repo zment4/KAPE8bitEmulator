@@ -14,6 +14,7 @@ namespace KAPE8bitEmulator
             public const byte CMP_ABS = 0xCD;
             public const byte CPY_IMM = 0xC0;
             public const byte CMP_ZPG = 0xC5;
+            public const byte CMP_IIX = 0xD1;
 
             void I_CMP_X(byte a, byte b)
             {
@@ -43,9 +44,18 @@ namespace KAPE8bitEmulator
             {
                 I_CMP_X(CPU.Y, CPU.FetchOperand());
             }
+
             void I_CPX_IMM()
             {
                 I_CMP_X(CPU.X, CPU.FetchOperand());
+            }
+
+            void I_CMP_IIX()
+            {
+                bool pageBoundaryCrossed = false;
+                I_CMP_X(CPU.A, CPU.Read(CPU.FetchIndirectIndexedAddress(out pageBoundaryCrossed)));
+
+                instructionDescriptors[CMP_IIX].Cycles = pageBoundaryCrossed ? 6 : 5;
             }
         }
     }
