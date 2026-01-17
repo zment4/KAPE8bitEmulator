@@ -17,7 +17,7 @@ namespace KAPE8bitEmulator
 
         public static bool HasEmbeddedBinary = false;
         public static bool IsHeadless = false;
-        public static int HeadlessTimeoutMs = 200;
+        public static int HeadlessTimeoutMs = 1000; // Default 1 second
         public static string HeadlessDumpPath = null;
         public static string FileName = "";
 
@@ -97,74 +97,26 @@ namespace KAPE8bitEmulator
                 Console.WriteLine($"[Headless] Loading binary: {FileName}");
                 sram.FillRam(FileName);
             }
+            // Create a minimal GPU proxy that just handles writes without graphics
+            var gpuProxy = new HeadlessGPUProxy();
 
             var cpu = new CPU_6502();
+
+            new NMITimer(KAPE8bitEmulator.NMI_FPS, KAPE8bitEmulator.TICKS_PER_NMI, cpu);
+
+            sram.RegisterMap(cpu);
+            gpuProxy.RegisterWrite(cpu);
+
             // Create a headless keyboard device so we can simulate key events
             // for testing. Create the keyboard before mapping SRAM so the
             // keyboard's read/write handlers take precedence over the SRAM
             // fall-through handlers.
             var keyboard = new KeyboardDevice(cpu);
 
-            sram.RegisterMap(cpu);
-
-            // Create a minimal GPU proxy that just handles writes without graphics
-            var gpuProxy = new HeadlessGPUProxy();
-            gpuProxy.RegisterWrite(cpu);
-
-            // Register helpful write breakpoints early to observe allocator and pointer stores
-            cpu.RegisterWriteBreakpointAction(0x0000, "alloc returned low", () =>
-            {
-                Console.WriteLine($"[BP] Write to $0000: $00={cpu.ReadMemory(0x0000):X2} $01={cpu.ReadMemory(0x0001):X2}");
-            });
-            cpu.RegisterWriteBreakpointAction(0x0001, "alloc returned high", () =>
-            {
-                Console.WriteLine($"[BP] Write to $0001: $00={cpu.ReadMemory(0x0000):X2} $01={cpu.ReadMemory(0x0001):X2}");
-            });
-
-            cpu.RegisterWriteBreakpointAction(0x0014, "input_buffer low written", () =>
-            {
-                byte lo = cpu.ReadMemory(0x0014);
-                byte hi = cpu.ReadMemory(0x0015);
-                ushort addr = (ushort)(hi << 8 | lo);
-                Console.WriteLine($"[BP] input_buffer set to ${addr:X4} (lo=${lo:X2},hi=${hi:X2})");
-                try
-                {
-                    Console.Write("[BP] Heap bytes: ");
-                    for (int i = 0; i < 16; i++) Console.Write($"{cpu.ReadMemory((ushort)(addr + i)):X2} ");
-                    Console.WriteLine();
-                }
-                catch { }
-            });
-            cpu.RegisterWriteBreakpointAction(0x0015, "input_buffer high written", () =>
-            {
-                byte lo = cpu.ReadMemory(0x0014);
-                byte hi = cpu.ReadMemory(0x0015);
-                ushort addr = (ushort)(hi << 8 | lo);
-                Console.WriteLine($"[BP] input_buffer set to ${addr:X4} (lo=${lo:X2},hi=${hi:X2})");
-            });
-
-            cpu.RegisterWriteBreakpointAction(0x0220, "heap bump low written", () =>
-            {
-                Console.WriteLine($"[BP] Heap bump low -> $0220={cpu.ReadMemory(0x0220):X2} $0221={cpu.ReadMemory(0x0221):X2}");
-            });
-            cpu.RegisterWriteBreakpointAction(0x0221, "heap bump high written", () =>
-            {
-                Console.WriteLine($"[BP] Heap bump high -> $0220={cpu.ReadMemory(0x0220):X2} $0221={cpu.ReadMemory(0x0221):X2}");
-            });
-
             Console.WriteLine("[Headless] Starting CPU execution...");
 
             cpu.Reset();
-            cpu.Start();
             cpu.EnterCycleLoop();
-
-            cpu.RegisterPCBreakpointAction(0x0F8D7, "Past ROM_FrameAsByte Reset", () =>
-            {
-                Console.WriteLine("[Headless] Reached post-reset breakpoint at $0F8D7, writing test value 0x21 to $0260");
-                cpu.WriteMemory(0x0260, 0x21);
-            });
-
-            Console.WriteLine($"Memory at address 0x0260: {cpu.ReadMemory(0x0260):X2}");
 
             // If requested, simulate a keypress to trigger IRQ handling.
             if (Args != null && Array.Exists(Args, a => string.Equals(a, "--simulate-key", StringComparison.OrdinalIgnoreCase)))
@@ -200,7 +152,7 @@ namespace KAPE8bitEmulator
                 long elapsed = DateTime.UtcNow.Ticks - startTick;
                 if (elapsed >= timeoutTicks)
                 {
-                    Console.WriteLine($"[Headless] Timeout after {HeadlessTimeoutMs}ms");
+                    Console.WriteLine($"[Headless] Exiting successfully");
                     break;
                 }
 
@@ -241,12 +193,19 @@ namespace KAPE8bitEmulator
             // Minimal implementation - just enough to satisfy CPU write requests
             public void RegisterWrite(CPU_6502 cpu)
             {
-                // Register GPU address range (0x8000-0xbfff) to absorb writes
-                cpu.RegisterWrite(0x8000, 0xbfff, (address, value) => 
+                bool isTerminal = false;
+                // Register GPU address range (0x8000-0xBFFF) to absorb writes
+                cpu.RegisterWrite(0x8000, 0xBFFF, (address, value) => 
                 {
                     // Silently absorb GPU writes in headless mode
                     if (KAPE8bitEmulator.DebugMode)
                         Console.WriteLine($"[GPU] Write to ${address:X4}: ${value:X2}");
+                    
+                    if (isTerminal)
+                        Console.Write($"{(char) value}");
+                    
+                    if (value == 0x02)
+                        isTerminal = true;
                 });
             }
         }

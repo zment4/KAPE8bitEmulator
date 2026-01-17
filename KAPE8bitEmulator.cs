@@ -18,8 +18,8 @@ namespace KAPE8bitEmulator
         public static bool CpuTraceMode = false;
         public static bool GpuTraceMode = false;
 
-        const int NMI_FPS = 62;
-        public static long TICKS_PER_NMI => 10000000 / NMI_FPS;
+        public const int NMI_FPS = 62;
+        public const long TICKS_PER_NMI = 10000000 / NMI_FPS;
 
         GraphicsDeviceManager? _graphics;
         SpriteBatch? _spriteBatch;

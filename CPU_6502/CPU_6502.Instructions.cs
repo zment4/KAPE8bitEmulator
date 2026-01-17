@@ -45,6 +45,8 @@ namespace KAPE8bitEmulator
             public const byte TAX_IMP = 0xAA;
             public const byte DEY_IMP = 0x88;
             public const byte BMI_REL = 0x30;
+            public const byte BPL_REL = 0x10;
+            public const byte LDY_ZPG = 0xA4;
             public const byte SBC_ABS = 0xED;
             public const byte CPX_IMM = 0xE0;
             public const byte ORA_IMM = 0x09;
@@ -57,6 +59,10 @@ namespace KAPE8bitEmulator
             public const byte PLP_IMP = 0x28;
             public const byte EOR_ABS = 0x4D;
             public const byte EOR_IMM = 0x49;
+            public const byte STY_ABS = 0x8C;
+            public const byte ROR_ACC = 0x6A;
+            public const byte STA_ABX = 0x9D;
+            public const byte CPX_ABS = 0xEC;
 
             public enum AddressingModeEnum
             {
@@ -214,6 +220,15 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Immediate,
                 };
 
+                instructionDescriptors[LDY_ZPG] = new InstructionDescriptor()
+                {
+                    Instruction = LDY_ZPG,
+                    Action = I_LDY_ZPG,
+                    Cycles = 3,
+                    Mnemonic = "LDY",
+                    AddressingMode = AddressingModeEnum.ZeroPage,
+                };
+
                 instructionDescriptors[TXS_IMP] = new InstructionDescriptor()
                 {
                     Instruction = TXS_IMP,
@@ -292,6 +307,15 @@ namespace KAPE8bitEmulator
                     Action = I_BMI_REL,
                     Cycles = 0, // dynamic, depends on page boundary crossing, set in action
                     Mnemonic = "BMI",
+                    AddressingMode = AddressingModeEnum.Relative,
+                };
+
+                instructionDescriptors[BPL_REL] = new InstructionDescriptor()
+                {
+                    Instruction = BPL_REL,
+                    Action = I_BPL_REL,
+                    Cycles = 0, // dynamic, depends on page boundary crossing, set in action
+                    Mnemonic = "BPL",
                     AddressingMode = AddressingModeEnum.Relative,
                 };
 
@@ -709,6 +733,42 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Immediate,
                 };
 
+                instructionDescriptors[STY_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = STY_ABS,
+                    Action = I_STY_ABS,
+                    Cycles = 4,
+                    Mnemonic = "STY",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
+                instructionDescriptors[ROR_ACC] = new InstructionDescriptor()
+                {
+                    Instruction = ROR_ACC,
+                    Action = I_ROR_ACC,
+                    Cycles = 2,
+                    Mnemonic = "ROR",
+                    AddressingMode = AddressingModeEnum.Accumulator,
+                };
+
+                instructionDescriptors[STA_ABX] = new InstructionDescriptor()
+                {
+                    Instruction = STA_ABX,
+                    Action = I_STA_ABX,
+                    Cycles = 5,
+                    Mnemonic = "STA",
+                    AddressingMode = AddressingModeEnum.AbsoluteIndexedX,
+                };
+
+                instructionDescriptors[CPX_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = CPX_ABS,
+                    Action = I_CPX_ABS,
+                    Cycles = 4,
+                    Mnemonic = "CPX",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
                 var inst_count = instructionDescriptors.Count(x => x != null);
                 Console.WriteLine($"{inst_count}/151 ({(int) (inst_count / 151f * 100)}%) opcodes implemented.");
             }
@@ -879,6 +939,15 @@ namespace KAPE8bitEmulator
             void I_LDY_IMM()
             {
                 CPU.Y = CPU.FetchOperand();
+                CPU.SetZero(CPU.Y);
+                CPU.SetNegative(CPU.Y);
+            }
+
+            void I_LDY_ZPG()
+            {
+                CPU.Y = CPU.Read(CPU.FetchOperand());
+                CPU.SetZero(CPU.Y);
+                CPU.SetNegative(CPU.Y);
             }
 
             void I_SEC_IMP()
@@ -1108,6 +1177,25 @@ namespace KAPE8bitEmulator
                     (oldPCh != newPCh) ? 1 : 0;
             }
 
+            void I_BPL_REL()
+            {
+                instructionDescriptors[BPL_REL].Cycles = 2;
+
+                var val = CPU.FetchOperand();
+
+                if (CPU.GetNegative()) return;  // Don't branch if negative is set
+
+                instructionDescriptors[BPL_REL].Cycles += 1;
+
+                var oldPCh = CPU.PC & 0xff00;
+                CPU.SetPC((UInt16)(CPU.PC + ((sbyte)val)));
+                var newPCh = CPU.PC & 0xff00;
+
+                // Set cycles accordingly depending on the page boundary
+                instructionDescriptors[BPL_REL].Cycles +=
+                    (oldPCh != newPCh) ? 1 : 0;
+            }
+
             void I_PHP_IMP()
             {
                 CPU.Push(CPU.P);
@@ -1116,6 +1204,36 @@ namespace KAPE8bitEmulator
             void I_PLP_IMP()
             {
                 CPU.P = CPU.Pull();
+            }
+
+            void I_STY_ABS()
+            {
+                CPU.Write(CPU.FetchAbsoluteAddress(), CPU.Y);
+            }
+
+            void I_ROR_ACC()
+            {
+                bool oldCarry = CPU.GetCarry();
+                CPU.SetCarry((CPU.A & 1) != 0);
+                CPU.A = (byte)((CPU.A >> 1) | (oldCarry ? 0x80 : 0));
+                CPU.SetNegative((CPU.A & (1 << 7)) != 0);
+                CPU.SetZero(CPU.A == 0);
+            }
+
+            void I_STA_ABX()
+            {
+                bool pageBoundaryCrossed;
+                UInt16 addr = CPU.FetchAbsoluteIndexedAddress(CPU.X, out pageBoundaryCrossed);
+                CPU.Write(addr, CPU.A);
+            }
+
+            void I_CPX_ABS()
+            {
+                var val = CPU.Read(CPU.FetchAbsoluteAddress());
+                int result = CPU.X - val;
+                CPU.SetCarry(CPU.X >= val);
+                CPU.SetZero((byte)result == 0);
+                CPU.SetNegative(((byte)result & (1 << 7)) != 0);
             }
         }
     }

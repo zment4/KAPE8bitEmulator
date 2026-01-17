@@ -10,8 +10,8 @@ namespace KAPE8bitEmulator
     public partial class KAPE_GPU {
         public class KAPE_GPU_TextMode : KAPE_GPU_Mode
         {
-            const int TEXT_WIDTH = 32;
-            const int TEXT_HEIGHT = 24;
+            const int TEXT_WIDTH = FB_WIDTH / 8;
+            const int TEXT_HEIGHT = FB_HEIGHT / 8;
 
             byte currentFGColor = 0x7;
             byte currentBGColor;

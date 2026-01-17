@@ -12,8 +12,8 @@ namespace KAPE8bitEmulator
     public partial class KAPE_GPU : DrawableGameComponent
     {
         const int FB_BORDER = 0;
-        const int FB_WIDTH = 256;
-        const int FB_HEIGHT = 192;
+        const int FB_WIDTH = 640;
+        const int FB_HEIGHT = 360;
         const int GPU_FPS = 40;
         const int TICKS_PER_FRAME = 10_000_000 / GPU_FPS;
 
@@ -69,8 +69,8 @@ namespace KAPE8bitEmulator
             var xScale = (float)Game.Window.ClientBounds.Width / _outputTexture.Width;
             var yScale = (float)Game.Window.ClientBounds.Height / _outputTexture.Height;
 
-            int intXScale = (int)Math.Floor(xScale);
-            int intYScale = (int)Math.Floor(yScale);
+            int intXScale = (int)Math.Floor(xScale) + 1;
+            int intYScale = (int)Math.Floor(yScale) + 1;
 
             var xPos = 0.5f * _integerScaledRenderTarget.Width;
             var yPos = 0.5f * _integerScaledRenderTarget.Height;
