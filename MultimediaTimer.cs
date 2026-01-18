@@ -16,7 +16,7 @@ namespace HighPrecisionTimer
         private const int EventTypeSingle = 0;
         private const int EventTypePeriodic = 1;
 
-        private static readonly Task TaskDone = Task.FromResult<object>(null);
+        private static readonly Task TaskDone = Task.FromResult(new object());
 
         private bool disposed = false;
         private int interval, resolution;
@@ -107,7 +107,7 @@ namespace HighPrecisionTimer
             MultimediaTimerCallback callback = (uint id, uint msg, ref uint uCtx, uint rsv1, uint rsv2) =>
             {
                 // Note we don't need to kill the timer for one-off events.
-                completionSource.TrySetResult(null);
+                completionSource.TrySetResult(new object());
             };
 
             state[0] = callback;

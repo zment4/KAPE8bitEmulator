@@ -18,7 +18,7 @@ namespace KAPE8bitEmulator
         public static bool HasEmbeddedBinary = false;
         public static bool IsHeadless = false;
         public static int HeadlessTimeoutMs = 1000; // Default 1 second
-        public static string HeadlessDumpPath = null;
+        public static string HeadlessDumpPath = "";
         public static string FileName = "";
 
         /// <summary>
@@ -38,7 +38,11 @@ namespace KAPE8bitEmulator
             if (parsed.Switches.TryGetValue("timeout", out var t) && int.TryParse(t, out int to))
                 HeadlessTimeoutMs = to;
             if (parsed.Switches.TryGetValue("dump", out var dp))
+            {
                 HeadlessDumpPath = dp;
+                if (HeadlessDumpPath == "true")
+                    HeadlessDumpPath = Path.Combine(Path.GetDirectoryName(parsed!.FileName), Path.GetFileNameWithoutExtension(parsed!.FileName) + ".dump");
+            }
             if (parsed.Switches.ContainsKey("debug"))
                 KAPE8bitEmulator.DebugMode = true;
             // Lightweight traversal tracing (Push/IRQ/PushKey)
@@ -210,6 +214,6 @@ namespace KAPE8bitEmulator
             }
         }
 
-        public static string[] Args;
+        public static string[] Args = Array.Empty<string>();
     }
 }

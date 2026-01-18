@@ -167,9 +167,9 @@ namespace KAPE8bitEmulator
 
             if (PressedThisFrame(Keys.F1))
             {
-                _KAPE_CPU.Stop();
+                _KAPE_CPU!.Stop();
 
-                _KAPE_GPU.Reset();
+                _KAPE_GPU!.Reset();
 
                 _KAPE_CPU.Reset();
                 _KAPE_CPU.Start();
@@ -197,7 +197,7 @@ namespace KAPE8bitEmulator
                 bool was = lastKeyState.IsKeyDown(k);
                 if (now != was)
                 {
-                    _keyboardDevice.PushKey(k, shift, isDown: now);
+                    _keyboardDevice!.PushKey(k, shift, isDown: now);
                 }
             }
 

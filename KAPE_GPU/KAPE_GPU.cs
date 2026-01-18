@@ -64,7 +64,7 @@ namespace KAPE8bitEmulator
 
         public override void Draw(GameTime gameTime)
         {
-            _outputTexture.SetData(_frameBuffer);
+            _outputTexture!.SetData(_frameBuffer);
 
             var xScale = (float)Game.Window.ClientBounds.Width / _outputTexture.Width;
             var yScale = (float)Game.Window.ClientBounds.Height / _outputTexture.Height;
@@ -72,7 +72,7 @@ namespace KAPE8bitEmulator
             int intXScale = (int)Math.Floor(xScale) + 1;
             int intYScale = (int)Math.Floor(yScale) + 1;
 
-            var xPos = 0.5f * _integerScaledRenderTarget.Width;
+            var xPos = 0.5f * _integerScaledRenderTarget!.Width;
             var yPos = 0.5f * _integerScaledRenderTarget.Height;
 
             int intXPos = (int)Math.Floor(0.5f * _outputTexture.Width);
@@ -102,7 +102,7 @@ namespace KAPE8bitEmulator
             }
 
             GraphicsDevice.SetRenderTarget(_integerScaledRenderTarget);
-            _spriteBatch.Begin(
+            _spriteBatch!.Begin(
                 SpriteSortMode.Deferred,
                 null,
                 SamplerState.PointClamp,
@@ -234,14 +234,14 @@ namespace KAPE8bitEmulator
 
                 if (byteCountRemaining == 0)
                 {
-                    CurrentMode.HandleCommandBytes(cmdBuffer);
+                    CurrentMode!.HandleCommandBytes(cmdBuffer);
                     currentIndex = 0;
                 }
 
                 return;
             }
 
-            if (CurrentMode.IsTerminal)
+            if (CurrentMode!.IsTerminal)
             {
                 CurrentMode.HandleTerminalCommandByte(cmdByte);
                 currentIndex = 0;

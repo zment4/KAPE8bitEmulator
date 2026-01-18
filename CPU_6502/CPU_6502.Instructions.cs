@@ -86,8 +86,8 @@ namespace KAPE8bitEmulator
             {
                 public byte Instruction;
                 public int Cycles;
-                public Action Action;
-                public string Mnemonic;
+                public Action? Action;
+                public string? Mnemonic;
                 public AddressingModeEnum AddressingMode;
             }
 

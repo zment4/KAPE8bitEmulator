@@ -28,7 +28,7 @@ namespace KAPE8bitEmulator
             public class CommandDescriptor
             {
                 public byte Command;
-                public Action<byte[]> Action;
+                public Action<byte[]>? Action;
             }
             public List<CommandDescriptor> commands = new List<CommandDescriptor>();
 

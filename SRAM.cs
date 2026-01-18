@@ -44,7 +44,7 @@ namespace KAPE8bitEmulator
 
         internal void FillFromEmbeddedBinary()
         {
-            using (var fileStream = new FileStream(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var fileStream = new FileStream(System.Diagnostics.Process.GetCurrentProcess()!.MainModule.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 fileStream.Seek(-0x10000, SeekOrigin.End);
                 using (var binaryReader = new BinaryReader(fileStream))
