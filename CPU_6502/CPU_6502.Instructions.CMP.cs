@@ -13,6 +13,8 @@ namespace KAPE8bitEmulator
             public const byte CMP_IMM = 0xC9;
             public const byte CMP_ABS = 0xCD;
             public const byte CPY_IMM = 0xC0;
+            public const byte CPY_ZPG = 0xC4;
+            public const byte CPY_ABS = 0xCC;
             public const byte CMP_ZPG = 0xC5;
             public const byte CMP_IIX = 0xD1;
 
@@ -43,6 +45,16 @@ namespace KAPE8bitEmulator
             void I_CPY_IMM()
             {
                 I_CMP_X(CPU.Y, CPU.FetchOperand());
+            }
+
+            void I_CPY_ZPG()
+            {
+                I_CMP_X(CPU.Y, CPU.Read(CPU.FetchOperand()));
+            }
+
+            void I_CPY_ABS()
+            {
+                I_CMP_X(CPU.Y, CPU.Read(CPU.FetchAbsoluteAddress()));
             }
 
             void I_CPX_IMM()

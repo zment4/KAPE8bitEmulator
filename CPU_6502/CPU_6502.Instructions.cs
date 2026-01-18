@@ -580,6 +580,24 @@ namespace KAPE8bitEmulator
                     AddressingMode = AddressingModeEnum.Immediate,
                 };
 
+                instructionDescriptors[CPY_ZPG] = new InstructionDescriptor()
+                {
+                    Instruction = CPY_ZPG,
+                    Action = I_CPY_ZPG,
+                    Cycles = 3,
+                    Mnemonic = "CPY",
+                    AddressingMode = AddressingModeEnum.ZeroPage,
+                };
+
+                instructionDescriptors[CPY_ABS] = new InstructionDescriptor()
+                {
+                    Instruction = CPY_ABS,
+                    Action = I_CPY_ABS,
+                    Cycles = 4,
+                    Mnemonic = "CPY",
+                    AddressingMode = AddressingModeEnum.Absolute,
+                };
+
                 instructionDescriptors[CPX_IMM] = new InstructionDescriptor()
                 {
                     Instruction = CPX_IMM,
