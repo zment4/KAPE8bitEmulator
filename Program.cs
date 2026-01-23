@@ -41,7 +41,7 @@ namespace KAPE8bitEmulator
             {
                 HeadlessDumpPath = dp;
                 if (HeadlessDumpPath == "true")
-                    HeadlessDumpPath = Path.Combine(Path.GetDirectoryName(parsed!.FileName), Path.GetFileNameWithoutExtension(parsed!.FileName) + ".dump");
+                    HeadlessDumpPath = Path.Combine(Path.GetDirectoryName(parsed!.FileName!), Path.GetFileNameWithoutExtension(parsed!.FileName!) + ".dump");
             }
             if (parsed.Switches.ContainsKey("debug"))
                 KAPE8bitEmulator.DebugMode = true;
@@ -52,7 +52,7 @@ namespace KAPE8bitEmulator
                 KAPE8bitEmulator.GpuTraceMode = true;
 
             // Determine binary filename (explicit --run takes precedence)
-            FileName = parsed.FileName;
+            FileName = parsed.FileName!;
             HasEmbeddedBinary = string.IsNullOrEmpty(FileName);
 
             // Validate explicit --run usage: if user supplied --run but no filename, error out

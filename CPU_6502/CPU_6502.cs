@@ -95,8 +95,7 @@ namespace KAPE8bitEmulator
 
         void Write(UInt16 address, byte value)
         {
-            foreach (var memWrite in WriteMap.Where(x =>
-            address >= x.StartAddress && address <= x.EndAddress)) {
+            foreach (var memWrite in WriteMap.Where(x => address >= x.StartAddress && address <= x.EndAddress)) {
                 if (KAPE8bitEmulator.DebugMode && address >= 0x0100 && address <= 0x01FF)
                     Console.WriteLine($"WriteStack: addr ${address:X4} <- ${value:X2} S:${S:X2}");
                 memWrite!.Write(address, value);
