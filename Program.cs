@@ -8,9 +8,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace KAPE8bitEmulator
 {
-    /// <summary>
-    /// The main class.
-    /// </summary>
+    /// <summary> The main class. </summary>
     public static class Program
     {
         public const string FIXED_NAME = "Battlesnake";
@@ -21,9 +19,7 @@ namespace KAPE8bitEmulator
         public static string HeadlessDumpPath = "";
         public static string FileName = "";
 
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
+        /// <summary> The main entry point for the application. </summary>
         [STAThread]
         static void Main(string[] args)
         {
@@ -41,7 +37,7 @@ namespace KAPE8bitEmulator
             {
                 HeadlessDumpPath = dp;
                 if (HeadlessDumpPath == "true")
-                    HeadlessDumpPath = Path.Combine(Path.GetDirectoryName(parsed!.FileName!), Path.GetFileNameWithoutExtension(parsed!.FileName!) + ".dump");
+                    HeadlessDumpPath = Path.Combine(Path.GetDirectoryName(parsed!.FileName!)!, Path.GetFileNameWithoutExtension(parsed!.FileName!)! + ".dump");
             }
             if (parsed.Switches.ContainsKey("debug"))
                 KAPE8bitEmulator.DebugMode = true;
@@ -189,9 +185,7 @@ namespace KAPE8bitEmulator
             Console.WriteLine("[Headless] Exiting...");            
         }
 
-        /// <summary>
-        /// Minimal GPU proxy for headless mode - handles GPU writes without graphics rendering.
-        /// </summary>
+        /// <summary> Minimal GPU proxy for headless mode - handles GPU writes without graphics rendering. </summary>
         private class HeadlessGPUProxy
         {
             // Minimal implementation - just enough to satisfy CPU write requests

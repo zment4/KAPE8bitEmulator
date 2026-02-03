@@ -9,9 +9,7 @@ using System.Linq;
 
 namespace KAPE8bitEmulator
 {
-    /// <summary>
-    /// This is the main type for your game.
-    /// </summary>
+    /// <summary> This is the main type for your game. </summary>
     public class KAPE8bitEmulator : Game
     {
         public static bool DebugMode = false;

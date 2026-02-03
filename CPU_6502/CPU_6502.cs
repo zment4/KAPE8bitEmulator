@@ -537,7 +537,7 @@ namespace KAPE8bitEmulator
             Console.Write($"X: ${X:X2} ");
             Console.Write($"Y: ${Y:X2} ");
             Console.Write($"S: ${S:X2} ");
-            Console.Write($"P: {Convert.ToString(P, 2).PadLeft(8,'0')}\n\t\t");
+            Console.WriteLine($"P: {Convert.ToString(P, 2).PadLeft(8,'0')}");
         }
 
         long currentCycles = 0;
@@ -580,11 +580,11 @@ namespace KAPE8bitEmulator
                 while (true)
                 {
                     // Halt, stopped with Stop() and restarted with Start()
-                    while (haltRequested)
+                    if (haltRequested)
                     {
                         haltAcknowledged = true;
-                        //Thread.Sleep(100);
-                        Task.Delay(100).Wait();
+                        Task.Delay(1).Wait();
+                        continue;
                     }
 
                     RunCycle();
@@ -811,17 +811,18 @@ namespace KAPE8bitEmulator
 
         public bool IsRunning => !haltRequested;
 
-        internal void Stop()
+        public void Stop()
         {
-            haltRequested = true;
-            while (!haltAcknowledged);
-            haltAcknowledged = false;
+            // Already halted
+            if (haltRequested)
+                return;
 
-            Task.Delay(10).Wait();
-            //Thread.Sleep(10);
+            haltRequested = true;
+            while (!haltAcknowledged) Task.Delay(1).Wait();
+            haltAcknowledged = false;
         }
 
-        internal void Start()
+        public void Start()
         {
             haltRequested = false;
         }

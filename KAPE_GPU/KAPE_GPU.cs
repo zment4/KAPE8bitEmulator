@@ -177,7 +177,7 @@ namespace KAPE8bitEmulator
                     if (resetRequested)
                     {
                         Reset();
-                        ResetFinished.WaitOne();
+                        ResetFinished?.WaitOne();
                     }
 
                     long frameStartTime = DateTime.Now.Ticks;
@@ -203,7 +203,7 @@ namespace KAPE8bitEmulator
                     // Introduce a waitstate to simulate screen updates and command handling waitstates
                     // TODO: make it more conformant with real elapsed time instead
 
-                    CurrentMode.Draw(DateTime.Now.Ticks);
+                    CurrentMode?.Draw(DateTime.Now.Ticks);
 
                     //long frameCurrentTime = DateTime.Now.Ticks;
                     //long deltaFrameTime = TICKS_PER_FRAME - (frameStartTime - frameCurrentTime);

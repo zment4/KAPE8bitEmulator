@@ -8,9 +8,7 @@ using System.Threading.Tasks;
 
 namespace HighPrecisionTimer
 {
-    /// <summary>
-    /// A timer based on the multimedia timer API with 1ms precision.
-    /// </summary>
+    /// <summary> A timer based on the multimedia timer API with 1ms precision. </summary>
     public class MultimediaTimer : IDisposable
     {
         private const int EventTypeSingle = 0;
@@ -37,9 +35,7 @@ namespace HighPrecisionTimer
             Dispose(false);
         }
 
-        /// <summary>
-        /// The period of the timer in milliseconds.
-        /// </summary>
+        /// <summary> The period of the timer in milliseconds. </summary>
         public int Interval
         {
             get
@@ -59,9 +55,7 @@ namespace HighPrecisionTimer
             }
         }
 
-        /// <summary>
-        /// The resolution of the timer in milliseconds. The minimum resolution is 0, meaning highest possible resolution.
-        /// </summary>
+        /// <summary> The resolution of the timer in milliseconds. The minimum resolution is 0, meaning highest possible resolution. </summary>
         public int Resolution
         {
             get
@@ -79,9 +73,7 @@ namespace HighPrecisionTimer
             }
         }
 
-        /// <summary>
-        /// Gets whether the timer has been started yet.
-        /// </summary>
+        /// <summary> Gets whether the timer has been started yet. </summary>
         public bool IsRunning
         {
             get { return timerId != 0; }

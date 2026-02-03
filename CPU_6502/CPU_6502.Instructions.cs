@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Diagnostics.Contracts;
 using System.Linq;
 
 namespace KAPE8bitEmulator
@@ -63,6 +65,7 @@ namespace KAPE8bitEmulator
             public const byte ROR_ACC = 0x6A;
             public const byte STA_ABX = 0x9D;
             public const byte CPX_ABS = 0xEC;
+            public const byte BRK_IMP = 0x00;
 
             public enum AddressingModeEnum
             {
@@ -100,6 +103,15 @@ namespace KAPE8bitEmulator
             public Instructions(CPU_6502 CPU)
             {
                 this.CPU = CPU;
+
+                instructionDescriptors[BRK_IMP] = new InstructionDescriptor()
+                {
+                    Instruction = BRK_IMP,
+                    Action = I_BRK_IMP,
+                    Cycles = 7,
+                    Mnemonic = "BRK",
+                    AddressingMode = AddressingModeEnum.Implied,
+                };
 
                 // Initialize all the instructions, their functions and how many cycles they take (for counting/limiting speed)
                 instructionDescriptors[JMP_ABS] = new InstructionDescriptor()
@@ -936,7 +948,8 @@ namespace KAPE8bitEmulator
 
             void I_RTS_IMP()
             {
-                CPU.SetPC((UInt16) (CPU.PullAddress() + 1));
+                var newPC = CPU.PullAddress() + 1;
+                CPU.SetPC((UInt16) newPC);
             }
 
             void I_CLI_IMP()
@@ -1252,6 +1265,27 @@ namespace KAPE8bitEmulator
                 CPU.SetCarry(CPU.X >= val);
                 CPU.SetZero((byte)result == 0);
                 CPU.SetNegative(((byte)result & (1 << 7)) != 0);
+            }
+
+            void I_BRK_IMP()
+            {                
+                Console.WriteLine($"[CPU] BRK triggered");
+                CPU.PushAddress((UInt16)CPU.PC);
+                CPU.Push((byte)(CPU.P | 0b00010000)); // Set B flag when pushing to stack
+
+                CPU.SetIntDisable();
+
+                UInt16 lo = CPU.Read(0xFFFE);
+                UInt16 hi = CPU.Read(0xFFFF);
+                UInt16 target = (UInt16)(lo | (hi << 8));
+
+                Console.WriteLine($"[CPU] BRK: Jumping to IRQ/BRK vector at ${target:X4}");
+                CPU.PrintRegisters();
+
+                CPU.SetPC(target);
+
+                CPU.Stop();
+                CPU.insideIRQ = true;
             }
         }
     }
